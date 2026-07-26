@@ -243,7 +243,7 @@ export default function Home() {
               <input type="text" value={destination} onChange={(e) => setDestination(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-black" placeholder="例如：日本東京、台灣環島、紐約" required />
             </div>
 
-            {/* 預計天數（支援 1 ~ 365 天） */}
+            {/* 預計天數 */}
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1">預計天數 (天)</label>
               <input 
@@ -258,7 +258,7 @@ export default function Home() {
                   }
                 }} 
                 className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-black" 
-                placeholder="例如：7 或 365 (最高支援 365 天)" 
+                placeholder="請輸入數字，限定最多 365 天" 
                 required 
               />
             </div>
