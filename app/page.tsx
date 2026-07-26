@@ -84,7 +84,12 @@ export default function Home() {
       const res = await fetch('/api/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ destination, days, style, inspiration }),
+        body: JSON.stringify({ 
+          destination, 
+          days: `${days} 天`, 
+          style, 
+          inspiration 
+        }),
         signal: controller.signal,
       });
 
@@ -135,7 +140,7 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           destination,
-          days,
+          days: `${days} 天`,
           style,
           inspiration,
           messages: updatedMessages,
@@ -190,7 +195,7 @@ export default function Home() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          destination, days, style, inspiration, messages: updatedMessages,
+          destination, days: `${days} 天`, style, inspiration, messages: updatedMessages,
         }),
         signal: controller.signal,
       });
@@ -238,9 +243,19 @@ export default function Home() {
               <input type="text" value={destination} onChange={(e) => setDestination(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-black" placeholder="例如：日本東京、倫敦、紐約" required />
             </div>
 
+            {/* 預計天數（限制純數字輸入） */}
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">預計天數</label>
-              <input type="text" value={days} onChange={(e) => setDays(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-black" placeholder="例如 3 天 2 夜" required />
+              <label className="block text-sm font-semibold text-slate-700 mb-1">預計天數 (天)</label>
+              <input 
+                type="number" 
+                min="1" 
+                max="99"
+                value={days} 
+                onChange={(e) => setDays(e.target.value.replace(/[^0-9]/g, ''))} 
+                className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-black" 
+                placeholder="例如：5 (只需輸入數字)" 
+                required 
+              />
             </div>
 
             <div>
@@ -305,7 +320,6 @@ export default function Home() {
                           
                           {/* 用戶訊息 Icon 操作按鈕區 */}
                           <div className="flex items-center gap-1 mr-1 mt-1">
-                            {/* 複製問題 */}
                             <div className="relative group/tooltip">
                               <button
                                 onClick={() => handleCopy(msg.content, `user-${idx}`)}
@@ -327,7 +341,6 @@ export default function Home() {
                               </div>
                             </div>
 
-                            {/* 編輯問題 */}
                             <div className="relative group/tooltip">
                               <button
                                 onClick={() => {
@@ -350,7 +363,6 @@ export default function Home() {
                       )}
                     </div>
                   ) : (
-                    /* AI 回覆區塊與 Icon 按鈕 */
                     <div className="bg-slate-50 text-slate-800 p-5 rounded-2xl rounded-tl-none text-sm border border-slate-100 leading-relaxed shadow-sm space-y-3">
                       <ReactMarkdown
                         components={{
@@ -364,7 +376,6 @@ export default function Home() {
                         {msg.content}
                       </ReactMarkdown>
 
-                      {/* AI 回應 Icon 按鈕 */}
                       <div className="pt-2 border-t border-slate-200/60 flex justify-end">
                         <div className="relative group/tooltip">
                           <button
