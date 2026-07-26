@@ -240,20 +240,25 @@ export default function Home() {
           <form onSubmit={handleGenerate} className="space-y-4">
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1">想去哪裡獨旅？</label>
-              <input type="text" value={destination} onChange={(e) => setDestination(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-black" placeholder="例如：日本東京、倫敦、紐約" required />
+              <input type="text" value={destination} onChange={(e) => setDestination(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-black" placeholder="例如：日本東京、台灣環島、紐約" required />
             </div>
 
-            {/* 預計天數（限制純數字輸入） */}
+            {/* 預計天數（支援 1 ~ 365 天） */}
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1">預計天數 (天)</label>
               <input 
                 type="number" 
                 min="1" 
-                max="99"
+                max="365"
                 value={days} 
-                onChange={(e) => setDays(e.target.value.replace(/[^0-9]/g, ''))} 
+                onChange={(e) => {
+                  const numStr = e.target.value.replace(/[^0-9]/g, '');
+                  if (numStr === '' || Number(numStr) <= 365) {
+                    setDays(numStr);
+                  }
+                }} 
                 className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-black" 
-                placeholder="例如：5 (只需輸入數字)" 
+                placeholder="例如：7 或 365 (最高支援 365 天)" 
                 required 
               />
             </div>
