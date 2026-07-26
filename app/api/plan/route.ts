@@ -5,7 +5,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { destination, days, style, inspiration, messages = [] } = body;
 
-    // 設定優化後的防腦補 System Prompt
+    // 設定防腦補 System Prompt
     const systemPrompt = `
 你是一位專業、貼心且幽默的獨旅規劃專家 Perry (@allonetrip_perry)。
 
@@ -24,13 +24,11 @@ export async function POST(req: Request) {
     let apiMessages: any[] = [];
 
     if (messages.length > 0) {
-      // 追問模式
       apiMessages = [
         { role: 'system', content: systemPrompt },
         ...messages
       ];
     } else {
-      // 初次生成模式
       apiMessages = [
         { role: 'system', content: systemPrompt },
         { 
@@ -49,7 +47,7 @@ export async function POST(req: Request) {
         "X-Title": "Solo Travel AI Agent",
       },
       body: JSON.stringify({
-        model: "anthropic/claude-3.5-sonnet", // 或你目前使用的 OpenRouter 模型
+        model: "google/gemini-2.0-flash-001", // 高穩定、極便宜的模型
         messages: apiMessages,
         temperature: 0.7,
       }),
@@ -64,14 +62,16 @@ export async function POST(req: Request) {
         itinerary: resultText 
       });
     } else {
+      // 抓出 OpenRouter 回傳的精確錯誤訊息（直接顯示在網頁上方便排錯）
+      const errorMsg = data.error?.message || data.message || JSON.stringify(data.error) || "OpenRouter 驗證失敗";
       console.error("OpenRouter API Error:", data);
       return NextResponse.json({ 
-        error: "AI 伺服器忙碌中，請稍後再試！" 
+        error: `❌ OpenRouter API 錯誤：${errorMsg}` 
       }, { status: 500 });
     }
 
-  } catch (error) {
-    console.error("API Error:", error);
-    return NextResponse.json({ error: "系統連線錯誤" }, { status: 500 });
+  } catch (error: any) {
+    console.error("API Exception Error:", error);
+    return NextResponse.json({ error: `❌ 系統連線失敗：${error.message || '請檢查網路'}` }, { status: 500 });
   }
 }
