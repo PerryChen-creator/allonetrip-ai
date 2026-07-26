@@ -2,71 +2,76 @@ import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
   try {
-    // 💡 接收新欄位：inspiration (靈感)
-    const { destination, days, style, inspiration, messages } = await req.json();
-    const apiKey = process.env.OPENROUTER_API_KEY || '';
+    const body = await req.json();
+    const { destination, days, style, inspiration, messages = [] } = body;
 
-    // 💡 靈感解析 Prompt：如果使用者有提供連結或描述，AI 必須結合目的地去精準推薦
-    const inspirationPrompt = inspiration ? `
-    【特別任務：靈感轉換與精準推薦】：
-    使用者提供了一個靈感參考（可能是影片連結或畫面描述）："${inspiration}"。
-    請你務必解析這個靈感背後的「活動類型、氛圍、自然景觀」，並結合使用者想去的目的地「${destination}」，推薦最適合的具體城市、島嶼或景點！
-    (舉例：如果使用者給了海島 SUP 影片，且目的地寫「日本」，你必須聰明地直接幫他把行程定調在「宮古島」或「沖繩」，並把水上活動排入行程)。
-    ` : '';
+    // 設定優化後的防腦補 System Prompt
+    const systemPrompt = `
+你是一位專業、貼心且幽默的獨旅規劃專家 Perry (@allonetrip_perry)。
 
-    const systemPrompt = `你是一位名為 Perry (@allonetrip_perry) 的獨旅規劃專家。
-    使用者的需求是：大方向目的地「${destination}」、天數「${days}」、風格「${style}」。
-    ${inspirationPrompt}
+【🚨 核心防護機制：目的地檢查與防腦補規則】
+1. **檢驗目的地**：請先評估使用者輸入的目的地（${destination}）是否為明確、真實的旅遊地點。
+2. **錯字與模糊處理**：
+   - 如果目的地為明顯錯字（例如：「日天」、「東台」）、模糊無效詞彙（例如：「隨便」、「到處」、「火星」）或無法確定具體地點：
+     - ❌ **絕對禁止** 擅自幫使用者盲猜特定地點（例如：不能自行決定幫他排「日本中部」）並直接輸出 10 天行程。
+     - ❌ **絕對禁止** 進行無意義的字面揶揄或解讀（例如：不要開玩笑說「太陽隨處可見」）。
+     - ✅ **必須做到**：用親切幽默的口吻告知使用者目的地似乎有錯字或太模糊，詢問確認（例如：「您是指『日本』嗎？還是其他地方呢？」），並引導他再次點擊生成或進行追問。
+3. **目的地明確時**：
+   - 根據【目的地：${destination}】、【天數：${days}】、【風格：${style}】與【靈感：${inspiration || '無'}】，為他規劃兼具獨旅特色與絕佳體驗的專屬行程。
+   - 條理分明，善用 Markdown 標題與清單，段落間要有良好的空行提高易讀性。
+`;
 
-    【核心規則：可行性與現實檢查 (Reality Check)】：
-    1. **地理可行性評估**：
-       - 如果使用者輸入的地區距離過遠（如10天要跨洲，或5天要跑遍日本全島），請在開頭以親切幽默的語氣直接提醒這不切實際，並主動幫他縮小到最精華的單一區域。
-    2. **獨旅友善**：
-       - 景點間交通必須順暢。
-       - 推薦單人友善餐廳（吧檯位、一個人吃不尷尬）。
-       - 行程最後附上專屬 IG 打卡文案與 Hashtags。
+    let apiMessages: any[] = [];
 
-    請直接以 Markdown 格式輸出，排版要乾淨好讀。`;
-
-    const chatHistory = [
-      { role: 'system', content: systemPrompt },
-      ...(messages || [])
-    ];
-
-    let itinerary = "";
-
-    if (apiKey) {
-      try {
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${apiKey.trim()}`,
-            "Content-Type": "application/json",
-            "HTTP-Referer": "http://localhost:3000",
-            "X-Title": "AllOneTrip AI",
-          },
-          body: JSON.stringify({
-            model: "openrouter/auto", // 讓 OpenRouter 自動選擇強大模型
-            messages: chatHistory,
-          }),
-        });
-
-        const data = await response.json();
-        if (response.ok && data.choices?.[0]?.message?.content) {
-          itinerary = data.choices[0].message.content;
+    if (messages.length > 0) {
+      // 追問模式
+      apiMessages = [
+        { role: 'system', content: systemPrompt },
+        ...messages
+      ];
+    } else {
+      // 初次生成模式
+      apiMessages = [
+        { role: 'system', content: systemPrompt },
+        { 
+          role: 'user', 
+          content: `我想去【${destination}】獨旅【${days}】，風格是【${style}】${inspiration ? `，靈感參考：${inspiration}` : ''}。請為我規劃行程！` 
         }
-      } catch (err) {
-        console.warn("連線 OpenRouter 失敗：", err);
-      }
+      ];
     }
 
-    if (!itinerary) {
-      itinerary = `⚠️ **Perry 的獨旅溫馨提醒：** AI 伺服器稍微塞車中，請再試一次！`;
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://allonetrip-ai.vercel.app",
+        "X-Title": "Solo Travel AI Agent",
+      },
+      body: JSON.stringify({
+        model: "anthropic/claude-3.5-sonnet", // 或你目前使用的 OpenRouter 模型
+        messages: apiMessages,
+        temperature: 0.7,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok && data.choices?.[0]?.message?.content) {
+      const resultText = data.choices[0].message.content;
+      return NextResponse.json({ 
+        reply: resultText, 
+        itinerary: resultText 
+      });
+    } else {
+      console.error("OpenRouter API Error:", data);
+      return NextResponse.json({ 
+        error: "AI 伺服器忙碌中，請稍後再試！" 
+      }, { status: 500 });
     }
 
-    return NextResponse.json({ reply: itinerary, itinerary });
   } catch (error) {
-    console.error("❌ API 發生錯誤：", error);
-    return NextResponse.json({ error: String(error) }, { status: 500 });
+    console.error("API Error:", error);
+    return NextResponse.json({ error: "系統連線錯誤" }, { status: 500 });
   }
 }

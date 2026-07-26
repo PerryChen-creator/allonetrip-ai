@@ -22,29 +22,40 @@ export default function Home() {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editInput, setEditInput] = useState('');
 
+  // 複製狀態紀錄
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
   // DOM 錨點 Refs
   const chatTopRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // 輸入框自動長高邏輯 (最大 4 行後出現 Scrollbar)
+  // 複製核心邏輯
+  const handleCopy = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => {
+      setCopiedId(null);
+    }, 2000);
+  };
+
+  // 輸入框自動調整高度
   const handleTextareaInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setFollowUpInput(e.target.value);
     if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'; // 先歸零以重新計算
+      textareaRef.current.style.height = 'auto';
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
     }
   };
 
-  // 當清空輸入框時，恢復預設高度
   useEffect(() => {
     if (followUpInput === '' && textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
   }, [followUpInput]);
 
-  // 中斷 AI 生成
+  // 中斷生成
   const handleStopGeneration = () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -62,7 +73,6 @@ export default function Home() {
     setLoading(true);
     setMessages([]);
 
-    // 1. 自動向下滑動至「產出內容的最上方」
     setTimeout(() => {
       chatTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 100);
@@ -112,7 +122,6 @@ export default function Home() {
     ];
     setMessages(updatedMessages);
 
-    // 追問時滑動到底部看最新對話
     setTimeout(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }, 100);
@@ -154,7 +163,7 @@ export default function Home() {
     }
   };
 
-  // 編輯問題並重新生成
+  // 編輯問題並重新發送
   const handleSaveEdit = async (index: number) => {
     if (!editInput.trim()) return;
     handleStopGeneration();
@@ -202,7 +211,6 @@ export default function Home() {
     }
   };
 
-  // 鍵盤事件處理 (Enter 發送 / Shift+Enter 換行)
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -259,7 +267,7 @@ export default function Home() {
           </a>
         </div>
 
-        {/* 顯示結果與對話區域 (只要開始載入或有訊息就顯示) */}
+        {/* 顯示結果與對話區域 */}
         {(messages.length > 0 || loading) && (
           <div ref={chatTopRef} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 scroll-mt-6">
             <h2 className="text-xl font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center justify-between">
@@ -291,25 +299,59 @@ export default function Home() {
                         </div>
                       ) : (
                         <>
-                          {/* 斷行顯示設定 whitespace-pre-wrap */}
                           <div className="bg-slate-900 text-white p-4 rounded-2xl rounded-tr-none text-sm whitespace-pre-wrap leading-relaxed max-w-[85%] shadow-sm">
                             {msg.content}
                           </div>
-                          {/* 顯眼的編輯按鈕 */}
-                          <button
-                            onClick={() => {
-                              setEditingIndex(idx);
-                              setEditInput(msg.content);
-                            }}
-                            className="text-[12px] text-slate-400 hover:text-slate-700 font-medium flex items-center gap-1 mr-1 mt-1 transition-colors"
-                          >
-                            ✏️ 編輯或補充問題
-                          </button>
+                          
+                          {/* 用戶訊息 Icon 操作按鈕區 */}
+                          <div className="flex items-center gap-1 mr-1 mt-1">
+                            {/* 複製問題 */}
+                            <div className="relative group/tooltip">
+                              <button
+                                onClick={() => handleCopy(msg.content, `user-${idx}`)}
+                                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
+                                aria-label="複製問題"
+                              >
+                                {copiedId === `user-${idx}` ? (
+                                  <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                  </svg>
+                                ) : (
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                  </svg>
+                                )}
+                              </button>
+                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover/tooltip:block bg-slate-800 text-white text-[11px] py-1 px-2 rounded shadow-md whitespace-nowrap pointer-events-none z-10">
+                                {copiedId === `user-${idx}` ? '已複製' : '複製問題'}
+                              </div>
+                            </div>
+
+                            {/* 編輯問題 */}
+                            <div className="relative group/tooltip">
+                              <button
+                                onClick={() => {
+                                  setEditingIndex(idx);
+                                  setEditInput(msg.content);
+                                }}
+                                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
+                                aria-label="編輯問題"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
+                              </button>
+                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover/tooltip:block bg-slate-800 text-white text-[11px] py-1 px-2 rounded shadow-md whitespace-nowrap pointer-events-none z-10">
+                                編輯問題
+                              </div>
+                            </div>
+                          </div>
                         </>
                       )}
                     </div>
                   ) : (
-                    <div className="bg-slate-50 text-slate-800 p-5 rounded-2xl rounded-tl-none text-sm border border-slate-100 leading-relaxed shadow-sm">
+                    /* AI 回覆區塊與 Icon 按鈕 */
+                    <div className="bg-slate-50 text-slate-800 p-5 rounded-2xl rounded-tl-none text-sm border border-slate-100 leading-relaxed shadow-sm space-y-3">
                       <ReactMarkdown
                         components={{
                           p: ({ children }) => <p className="mb-3 last:mb-0 leading-relaxed whitespace-pre-wrap">{children}</p>,
@@ -321,12 +363,35 @@ export default function Home() {
                       >
                         {msg.content}
                       </ReactMarkdown>
+
+                      {/* AI 回應 Icon 按鈕 */}
+                      <div className="pt-2 border-t border-slate-200/60 flex justify-end">
+                        <div className="relative group/tooltip">
+                          <button
+                            onClick={() => handleCopy(msg.content, `ai-${idx}`)}
+                            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-md transition-colors"
+                            aria-label="複製回應"
+                          >
+                            {copiedId === `ai-${idx}` ? (
+                              <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : (
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                              </svg>
+                            )}
+                          </button>
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover/tooltip:block bg-slate-800 text-white text-[11px] py-1 px-2 rounded shadow-md whitespace-nowrap pointer-events-none z-10">
+                            {copiedId === `ai-${idx}` ? '已複製' : '複製回應'}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
               ))}
 
-              {/* 思考中提示區塊 */}
               {(loading || isAnswering) && (
                 <div className="bg-slate-50 text-slate-500 p-4 rounded-2xl rounded-tl-none text-sm border border-slate-100 w-fit">
                   <div className="flex gap-1.5">
@@ -337,7 +402,6 @@ export default function Home() {
                 </div>
               )}
 
-              {/* 追問時的滾動錨點 */}
               <div ref={messagesEndRef} className="h-4" />
             </div>
           </div>
@@ -345,7 +409,7 @@ export default function Home() {
 
       </div>
 
-      {/* 固定在底部的對話輸入框 (毛玻璃特效) */}
+      {/* 固定底部的輸入框 */}
       {(messages.length > 0 || loading || isAnswering) && (
         <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-slate-200 p-3 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-50">
           <div className="max-w-2xl mx-auto flex items-end gap-2">
@@ -359,7 +423,6 @@ export default function Home() {
               style={{ minHeight: '46px', maxHeight: '120px' }}
             />
 
-            {/* 動態切換：暫停 vs 發送 */}
             {(loading || isAnswering) ? (
               <button
                 onClick={handleStopGeneration}
