@@ -15,7 +15,7 @@ export default function Home() {
   const [days, setDays] = useState('');
   const [styleAndInspiration, setStyleAndInspiration] = useState('');
   
-  // 🎯 自訂欄位紅字錯誤狀態
+  // 自訂欄位紅字錯誤狀態
   const [errors, setErrors] = useState<{ destination?: string; days?: string }>({});
 
   // 保留對話追問區圖片狀態
@@ -41,6 +41,45 @@ export default function Home() {
 
   const loadingDotsRef = useRef<HTMLDivElement | null>(null);
   const latestAiMsgRef = useRef<HTMLDivElement | null>(null);
+
+  // 🔗 朋友透過分享連結打開時，自動帶入參數
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlDest = params.get('dest');
+      const urlDays = params.get('days');
+      const urlStyle = params.get('style');
+
+      if (urlDest) setDestination(urlDest);
+      if (urlDays) setDays(urlDays);
+      if (urlStyle) setStyleAndInspiration(urlStyle);
+    }
+  }, []);
+
+  // 🌐 一鍵分享此對話/行程邏輯 (支援原生 LINE / IG / 剪貼簿)
+  const handleShare = async () => {
+    if (!destination) return;
+
+    const shareUrl = `${window.location.origin}?dest=${encodeURIComponent(destination)}&days=${encodeURIComponent(days)}&style=${encodeURIComponent(styleAndInspiration)}`;
+    const shareText = `🧳 這是我用「獨旅 AI 幫手」規劃的【${destination} ${days} 天】專屬行程，分享給你看看！✨`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `🧳 ${destination} 獨旅行程分享`,
+          text: shareText,
+          url: shareUrl,
+        });
+      } catch (err) {
+        // 使用者取消分享不跳錯
+      }
+    } else {
+      // 電腦版不支援 Native Share，自動複製文字與網址
+      navigator.clipboard.writeText(`${shareText}\n👉 點擊查看/規劃：${shareUrl}`);
+      setCopiedId('share-all');
+      setTimeout(() => setCopiedId(null), 2500);
+    }
+  };
 
   // 對話追問區圖片讀取
   const handleChatImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -82,7 +121,7 @@ export default function Home() {
     }, 2000);
   };
 
-  // 輸入框高度微調：預設平齊 40px，多行時動態伸展最高 120px
+  // 輸入框高度微調
   const handleTextareaInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setFollowUpInput(e.target.value);
     if (textareaRef.current) {
@@ -108,11 +147,10 @@ export default function Home() {
     setIsAnswering(false);
   };
 
-  // 一鍵生成主行程（帶有客製化 JS 驗證）
+  // 一鍵生成主行程
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // 🎯 1. 表單輸入手動檢查
     const newErrors: { destination?: string; days?: string } = {};
 
     if (!destination.trim()) {
@@ -123,13 +161,11 @@ export default function Home() {
       newErrors.days = '請輸入 1 至 365 之間的有效數字天數';
     }
 
-    // 若有錯誤則阻擋送出，並更新紅字 UI
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
 
-    // 驗證通過，清空錯誤
     setErrors({});
     handleStopGeneration(); 
 
@@ -300,7 +336,7 @@ export default function Home() {
           </p>
         </div>
 
-        {/* 輸入表單 (帶有 noValidate 關閉瀏覽器原生醜氣泡) */}
+        {/* 輸入表單 */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
           <form onSubmit={handleGenerate} noValidate className="space-y-4">
             
@@ -321,7 +357,6 @@ export default function Home() {
                 }`} 
                 placeholder="例如：日本東京、台灣環島、紐約" 
               />
-              {/* 🎯 欄位下方專屬紅字提示 */}
               {errors.destination && (
                 <p className="mt-1.5 text-xs text-red-500 font-medium flex items-center gap-1">
                   <span>⚠️</span> {errors.destination}
@@ -350,7 +385,6 @@ export default function Home() {
                 }`} 
                 placeholder="請輸入數字，限定最多 365 天" 
               />
-              {/* 🎯 欄位下方專屬紅字提示 */}
               {errors.days && (
                 <p className="mt-1.5 text-xs text-red-500 font-medium flex items-center gap-1">
                   <span>⚠️</span> {errors.days}
@@ -390,9 +424,25 @@ export default function Home() {
         {/* 顯示結果與對話區域 */}
         {(messages.length > 0 || loading) && (
           <div ref={chatTopRef} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 scroll-mt-6">
-            <h2 className="text-xl font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center justify-between">
+            
+            {/* 📍 標頭 + 🔗 分享按鈕區 */}
+            <h2 className="text-xl font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center justify-between gap-2">
               <span>📍 專屬獨旅行程對話</span>
-              {(loading || isAnswering) && <span className="text-sm font-normal text-slate-400 animate-pulse">AI 思考中...</span>}
+              <div className="flex items-center gap-2">
+                {(loading || isAnswering) ? (
+                  <span className="text-sm font-normal text-slate-400 animate-pulse">AI 思考中...</span>
+                ) : (
+                  <button
+                    onClick={handleShare}
+                    className="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border border-slate-200 shadow-sm"
+                  >
+                    <svg className="w-3.5 h-3.5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                    </svg>
+                    <span>{copiedId === 'share-all' ? '✨ 已複製分享內容！' : '分享此對話'}</span>
+                  </button>
+                )}
+              </div>
             </h2>
             
             <div className="space-y-6">
@@ -612,7 +662,7 @@ export default function Home() {
                 value={followUpInput}
                 onChange={handleTextareaInput}
                 onKeyDown={handleKeyDown}
-                placeholder="繼續追問 (Shift+Enter 換行, Enter 發送)..."
+                placeholder="問問 Perry..."
                 className="flex-1 px-3.5 py-[9px] text-sm bg-slate-50 border border-slate-300 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition-all resize-none overflow-y-auto leading-[20px] shadow-inner"
                 style={{ height: '40px', minHeight: '40px', maxHeight: '120px' }}
               />
