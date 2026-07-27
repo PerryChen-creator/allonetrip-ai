@@ -13,7 +13,6 @@ interface Message {
 export default function Home() {
   const [destination, setDestination] = useState('');
   const [days, setDays] = useState('');
-  // 將獨旅風格與靈感連結合併為單一選填欄位
   const [styleAndInspiration, setStyleAndInspiration] = useState('');
   
   // 保留對話追問區圖片狀態
@@ -124,7 +123,7 @@ export default function Home() {
         body: JSON.stringify({ 
           destination, 
           days: `${days} 天`, 
-          style: styleAndInspiration, // 整合發送風格與靈感
+          style: styleAndInspiration,
         }),
         signal: controller.signal,
       });
@@ -306,16 +305,19 @@ export default function Home() {
               />
             </div>
 
-            {/* 🎯 合併後的「獨旅風格與靈感 (選填)」欄位 */}
+            {/* 📱 針對手機排版優化：簡短 Placeholder + 輔助說明文字 */}
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1">獨旅風格與靈感 (選填) 🔗</label>
               <input 
                 type="text" 
                 value={styleAndInspiration} 
                 onChange={(e) => setStyleAndInspiration(e.target.value)} 
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-black transition-all" 
-                placeholder="輸入偏好（如：探索登山、夜生活）或貼上公開影片/圖片連結" 
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-black transition-all text-sm" 
+                placeholder="例如：探索登山、夜生活，或貼上連結" 
               />
+              <p className="mt-1.5 text-xs text-slate-400">
+                可輸入風格喜好，或直接貼上 IG / YouTube 公開影片連結
+              </p>
             </div>
 
             <button type="submit" className="w-full bg-black text-white font-medium py-3 rounded-lg hover:bg-slate-800 transition-colors mt-2">
@@ -433,7 +435,7 @@ export default function Home() {
                             li: ({ children }) => <li className="leading-relaxed">{children}</li>,
                             h3: ({ children }) => <h3 className="text-base font-bold text-slate-900 mt-4 mb-2">{children}</h3>,
                             
-                            /* 外部連結向量 Icon 樣式 */
+                            /* 💎 精緻向量 Icon 外連樣式 */
                             a: ({ href, children }) => (
                               <a
                                 href={href}
