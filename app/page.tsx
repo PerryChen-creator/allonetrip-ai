@@ -32,6 +32,31 @@ export default function Home() {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  // 🎯 精確滾動控制 Refs
+  const loadingDotsRef = useRef<HTMLDivElement | null>(null);
+  const latestAiMsgRef = useRef<HTMLDivElement | null>(null);
+
+  // 1️⃣ 思考中狀態：自動滑動確保三個點出現在視野正中央
+  useEffect(() => {
+    if (loading || isAnswering) {
+      setTimeout(() => {
+        loadingDotsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+  }, [loading, isAnswering]);
+
+  // 2️⃣ 回答完成狀態：自動精準滑動至「最新 AI 回答的頂部」
+  useEffect(() => {
+    if (messages.length > 0) {
+      const lastMsg = messages[messages.length - 1];
+      if (lastMsg.role === 'assistant' && !loading && !isAnswering) {
+        setTimeout(() => {
+          latestAiMsgRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 150);
+      }
+    }
+  }, [messages, loading, isAnswering]);
+
   // 複製核心邏輯
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -73,10 +98,6 @@ export default function Home() {
 
     setLoading(true);
     setMessages([]);
-
-    setTimeout(() => {
-      chatTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 100);
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -128,10 +149,6 @@ export default function Home() {
     ];
     setMessages(updatedMessages);
 
-    setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    }, 100);
-
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
@@ -153,10 +170,6 @@ export default function Home() {
       const replyText = data.reply || data.itinerary || '無法取得回答';
 
       setMessages([...updatedMessages, { role: 'assistant', content: replyText }]);
-      
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-      }, 100);
     } catch (err: any) {
       if (err.name === 'AbortError') {
         setMessages([...updatedMessages, { role: 'assistant', content: '⏹️ 已暫停回應。' }]);
@@ -183,10 +196,6 @@ export default function Home() {
       { role: 'user', content: newQuestion }
     ];
     setMessages(updatedMessages);
-
-    setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    }, 100);
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -300,153 +309,160 @@ export default function Home() {
             </h2>
             
             <div className="space-y-6">
-              {messages.map((msg, idx) => (
-                <div key={idx} className="space-y-2">
-                  {msg.role === 'user' ? (
-                    <div className="flex flex-col items-end gap-1 w-full">
-                      {editingIndex === idx ? (
-                        <div className="w-full max-w-lg bg-slate-50 p-3 rounded-xl border border-slate-300 shadow-inner space-y-3">
-                          <textarea
-                            value={editInput}
-                            onChange={(e) => {
-                              setEditInput(e.target.value);
-                              e.target.style.height = 'auto';
-                              e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
-                            }}
-                            className="w-full p-2.5 text-sm bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-black leading-relaxed resize-none overflow-y-auto"
-                            style={{ minHeight: '60px', maxHeight: '120px' }}
-                          />
-                          <div className="flex justify-end gap-3">
-                            <button onClick={() => setEditingIndex(null)} className="text-sm font-medium text-slate-500 hover:text-slate-800">取消</button>
-                            <button onClick={() => handleSaveEdit(idx)} className="text-sm font-medium bg-black text-white px-4 py-1.5 rounded-lg hover:bg-slate-800">重新送出</button>
+              {messages.map((msg, idx) => {
+                const isLastAiMsg = (idx === messages.length - 1) && (msg.role === 'assistant');
+                
+                return (
+                  <div 
+                    key={idx} 
+                    ref={isLastAiMsg ? latestAiMsgRef : null}
+                    className="space-y-2 scroll-mt-8"
+                  >
+                    {msg.role === 'user' ? (
+                      <div className="flex flex-col items-end gap-1 w-full">
+                        {editingIndex === idx ? (
+                          <div className="w-full max-w-lg bg-slate-50 p-3 rounded-xl border border-slate-300 shadow-inner space-y-3">
+                            <textarea
+                              value={editInput}
+                              onChange={(e) => {
+                                setEditInput(e.target.value);
+                                e.target.style.height = 'auto';
+                                e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
+                              }}
+                              className="w-full p-2.5 text-sm bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-black leading-relaxed resize-none overflow-y-auto"
+                              style={{ minHeight: '60px', maxHeight: '120px' }}
+                            />
+                            <div className="flex justify-end gap-3">
+                              <button onClick={() => setEditingIndex(null)} className="text-sm font-medium text-slate-500 hover:text-slate-800">取消</button>
+                              <button onClick={() => handleSaveEdit(idx)} className="text-sm font-medium bg-black text-white px-4 py-1.5 rounded-lg hover:bg-slate-800">重新送出</button>
+                            </div>
                           </div>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="bg-slate-900 text-white p-4 rounded-2xl rounded-tr-none text-sm whitespace-pre-wrap leading-relaxed max-w-[85%] shadow-sm">
-                            {msg.content}
-                          </div>
-                          
-                          {/* 用戶訊息 Icon 操作按鈕區 */}
-                          <div className="flex items-center gap-1 mr-1 mt-1">
-                            <div className="relative group/tooltip">
-                              <button
-                                onClick={() => handleCopy(msg.content, `user-${idx}`)}
-                                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
-                                aria-label="複製問題"
-                              >
-                                {copiedId === `user-${idx}` ? (
-                                  <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                                  </svg>
-                                ) : (
+                        ) : (
+                          <>
+                            <div className="bg-slate-900 text-white p-4 rounded-2xl rounded-tr-none text-sm whitespace-pre-wrap leading-relaxed max-w-[85%] shadow-sm">
+                              {msg.content}
+                            </div>
+                            
+                            {/* 用戶訊息 Icon 操作按鈕區 */}
+                            <div className="flex items-center gap-1 mr-1 mt-1">
+                              <div className="relative group/tooltip">
+                                <button
+                                  onClick={() => handleCopy(msg.content, `user-${idx}`)}
+                                  className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
+                                  aria-label="複製問題"
+                                >
+                                  {copiedId === `user-${idx}` ? (
+                                    <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  ) : (
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                    </svg>
+                                  )}
+                                </button>
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover/tooltip:block bg-slate-800 text-white text-[11px] py-1 px-2 rounded shadow-md whitespace-nowrap pointer-events-none z-10">
+                                  {copiedId === `user-${idx}` ? '已複製' : '複製問題'}
+                                </div>
+                              </div>
+
+                              <div className="relative group/tooltip">
+                                <button
+                                  onClick={() => {
+                                    setEditingIndex(idx);
+                                    setEditInput(msg.content);
+                                  }}
+                                  className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
+                                  aria-label="編輯問題"
+                                >
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                                   </svg>
-                                )}
-                              </button>
-                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover/tooltip:block bg-slate-800 text-white text-[11px] py-1 px-2 rounded shadow-md whitespace-nowrap pointer-events-none z-10">
-                                {copiedId === `user-${idx}` ? '已複製' : '複製問題'}
+                                </button>
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover/tooltip:block bg-slate-800 text-white text-[11px] py-1 px-2 rounded shadow-md whitespace-nowrap pointer-events-none z-10">
+                                  編輯問題
+                                </div>
                               </div>
                             </div>
-
-                            <div className="relative group/tooltip">
-                              <button
-                                onClick={() => {
-                                  setEditingIndex(idx);
-                                  setEditInput(msg.content);
-                                }}
-                                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
-                                aria-label="編輯問題"
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="bg-slate-50 text-slate-800 p-5 rounded-2xl rounded-tl-none text-sm border border-slate-100 leading-relaxed shadow-sm space-y-3 overflow-hidden">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            p: ({ children }) => <p className="mb-3 last:mb-0 leading-relaxed whitespace-pre-wrap">{children}</p>,
+                            ul: ({ children }) => <ul className="list-disc pl-5 mb-3 space-y-1">{children}</ul>,
+                            ol: ({ children }) => <ol className="list-decimal pl-5 mb-3 space-y-1">{children}</ol>,
+                            li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+                            h3: ({ children }) => <h3 className="text-base font-bold text-slate-900 mt-4 mb-2">{children}</h3>,
+                            
+                            /* WCAG 無障礙外部連結組件 */
+                            a: ({ href, children }) => (
+                              <a
+                                href={href}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 underline font-medium hover:bg-blue-50/80 rounded px-1 py-0.5 transition-colors align-baseline"
+                                title={`${typeof children === 'string' ? children : '外部連結'} (將在新的分頁開啟)`}
                               >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                <span>{children}</span>
+                                <svg className="w-3.5 h-3.5 inline shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14L21 3m0 0h-6m6 0v6" />
                                 </svg>
-                              </button>
-                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover/tooltip:block bg-slate-800 text-white text-[11px] py-1 px-2 rounded shadow-md whitespace-nowrap pointer-events-none z-10">
-                                編輯問題
+                                <span className="sr-only">(另開新視窗)</span>
+                              </a>
+                            ),
+
+                            /* 表格組件 */
+                            table: ({ children }) => (
+                              <div className="overflow-x-auto my-4 rounded-xl border border-slate-200 bg-white shadow-sm">
+                                <table className="min-w-full divide-y divide-slate-200 text-sm text-slate-700">{children}</table>
                               </div>
-                            </div>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="bg-slate-50 text-slate-800 p-5 rounded-2xl rounded-tl-none text-sm border border-slate-100 leading-relaxed shadow-sm space-y-3 overflow-hidden">
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          p: ({ children }) => <p className="mb-3 last:mb-0 leading-relaxed whitespace-pre-wrap">{children}</p>,
-                          ul: ({ children }) => <ul className="list-disc pl-5 mb-3 space-y-1">{children}</ul>,
-                          ol: ({ children }) => <ol className="list-decimal pl-5 mb-3 space-y-1">{children}</ol>,
-                          li: ({ children }) => <li className="leading-relaxed">{children}</li>,
-                          h3: ({ children }) => <h3 className="text-base font-bold text-slate-900 mt-4 mb-2">{children}</h3>,
-                          
-                          /* 🌐 WCAG 無障礙外部連結組件 */
-                          a: ({ href, children }) => (
-                            <a
-                              href={href}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 underline font-medium hover:bg-blue-50/80 rounded px-1 py-0.5 transition-colors align-baseline"
-                              title={`${typeof children === 'string' ? children : '外部連結'} (將在新的分頁開啟)`}
+                            ),
+                            thead: ({ children }) => <thead className="bg-slate-100/80 font-semibold text-slate-900 border-b border-slate-200">{children}</thead>,
+                            tbody: ({ children }) => <tbody className="divide-y divide-slate-100 bg-white">{children}</tbody>,
+                            tr: ({ children }) => <tr className="hover:bg-slate-50/80 transition-colors">{children}</tr>,
+                            th: ({ children }) => <th className="px-4 py-3 text-left font-bold text-xs tracking-wider text-slate-700 uppercase">{children}</th>,
+                            td: ({ children }) => <td className="px-4 py-3 whitespace-nowrap leading-relaxed">{children}</td>,
+                          }}
+                        >
+                          {msg.content}
+                        </ReactMarkdown>
+
+                        <div className="pt-2 border-t border-slate-200/60 flex justify-end">
+                          <div className="relative group/tooltip">
+                            <button
+                              onClick={() => handleCopy(msg.content, `ai-${idx}`)}
+                              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-md transition-colors"
+                              aria-label="複製回應"
                             >
-                              <span>{children}</span>
-                              {/* ↗ 斜右上網頁外部連結 Icon */}
-                              <svg className="w-3.5 h-3.5 inline shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14L21 3m0 0h-6m6 0v6" />
-                              </svg>
-                              {/* 螢幕閱讀器無障礙輔助文字 */}
-                              <span className="sr-only">(另開新視窗)</span>
-                            </a>
-                          ),
-
-                          /* 表格組件 */
-                          table: ({ children }) => (
-                            <div className="overflow-x-auto my-4 rounded-xl border border-slate-200 bg-white shadow-sm">
-                              <table className="min-w-full divide-y divide-slate-200 text-sm text-slate-700">{children}</table>
+                              {copiedId === `ai-${idx}` ? (
+                                <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                              ) : (
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                              )}
+                            </button>
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover/tooltip:block bg-slate-800 text-white text-[11px] py-1 px-2 rounded shadow-md whitespace-nowrap pointer-events-none z-10">
+                              {copiedId === `ai-${idx}` ? '已複製' : '複製回應'}
                             </div>
-                          ),
-                          thead: ({ children }) => <thead className="bg-slate-100/80 font-semibold text-slate-900 border-b border-slate-200">{children}</thead>,
-                          tbody: ({ children }) => <tbody className="divide-y divide-slate-100 bg-white">{children}</tbody>,
-                          tr: ({ children }) => <tr className="hover:bg-slate-50/80 transition-colors">{children}</tr>,
-                          th: ({ children }) => <th className="px-4 py-3 text-left font-bold text-xs tracking-wider text-slate-700 uppercase">{children}</th>,
-                          td: ({ children }) => <td className="px-4 py-3 whitespace-nowrap leading-relaxed">{children}</td>,
-                        }}
-                      >
-                        {msg.content}
-                      </ReactMarkdown>
-
-                      <div className="pt-2 border-t border-slate-200/60 flex justify-end">
-                        <div className="relative group/tooltip">
-                          <button
-                            onClick={() => handleCopy(msg.content, `ai-${idx}`)}
-                            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-md transition-colors"
-                            aria-label="複製回應"
-                          >
-                            {copiedId === `ai-${idx}` ? (
-                              <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                              </svg>
-                            ) : (
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                              </svg>
-                            )}
-                          </button>
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover/tooltip:block bg-slate-800 text-white text-[11px] py-1 px-2 rounded shadow-md whitespace-nowrap pointer-events-none z-10">
-                            {copiedId === `ai-${idx}` ? '已複製' : '複製回應'}
                           </div>
                         </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                    )}
+                  </div>
+                );
+              })}
 
+              {/* 思考中 3 個點的彈性容器與滾動錨點 */}
               {(loading || isAnswering) && (
-                <div className="bg-slate-50 text-slate-500 p-4 rounded-2xl rounded-tl-none text-sm border border-slate-100 w-fit">
+                <div ref={loadingDotsRef} className="bg-slate-50 text-slate-500 p-4 rounded-2xl rounded-tl-none text-sm border border-slate-100 w-fit scroll-mt-6">
                   <div className="flex gap-1.5">
                     <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></span>
                     <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></span>
