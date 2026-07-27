@@ -16,9 +16,7 @@ export default function Home() {
   const [style, setStyle] = useState('');
   const [inspiration, setInspiration] = useState('');
   
-  // 主表單圖片
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  // 對話追問區圖片
+  // 保留對話追問區圖片狀態
   const [chatImage, setChatImage] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
@@ -36,22 +34,11 @@ export default function Home() {
   const chatTopRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const chatFileInputRef = useRef<HTMLInputElement | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const loadingDotsRef = useRef<HTMLDivElement | null>(null);
   const latestAiMsgRef = useRef<HTMLDivElement | null>(null);
-
-  // 主表單圖片讀取
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setSelectedImage(reader.result as string);
-      reader.readAsDataURL(file);
-    }
-  };
 
   // 對話追問區圖片讀取
   const handleChatImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -93,7 +80,7 @@ export default function Home() {
     }, 2000);
   };
 
-  // 🎯 輸入框高度微調：預設平齊 40px，多行時動態伸展最高 120px
+  // 輸入框高度微調：預設平齊 40px，多行時動態伸展最高 120px
   const handleTextareaInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setFollowUpInput(e.target.value);
     if (textareaRef.current) {
@@ -139,7 +126,6 @@ export default function Home() {
           days: `${days} 天`, 
           style, 
           inspiration,
-          imageBase64: selectedImage,
         }),
         signal: controller.signal,
       });
@@ -276,56 +262,30 @@ export default function Home() {
     <main className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8 pb-40">
       <div className="max-w-2xl mx-auto space-y-8">
         
-        {/* 標頭 */}
+        {/* 標頭 (IG 帳號設為超連結可另開新頁) */}
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-extrabold text-slate-900 sm:text-4xl">
             🧳 獨旅 AI 幫手
           </h1>
-          <p className="text-sm text-slate-500">@allonetrip_perry 專屬行程規劃</p>
+          <p className="text-sm text-slate-500">
+            <a 
+              href="https://www.instagram.com/allonetrip_perry/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-slate-700 font-medium hover:underline hover:text-black transition-colors"
+            >
+              @allonetrip_perry
+            </a>
+            {' '}專屬行程規劃
+          </p>
         </div>
 
         {/* 輸入表單 */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
           <form onSubmit={handleGenerate} className="space-y-4">
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">想去哪裡獨旅？ (選填，可直接上傳景點照片)</label>
-              <input type="text" value={destination} onChange={(e) => setDestination(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-black" placeholder="例如：日本東京、台灣環島、紐約" />
-            </div>
-
-            {/* 📸 景點照片上傳區 */}
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">景點照片靈感 (選填) 🖼️</label>
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-lg border border-slate-300 transition-colors flex items-center gap-1.5"
-                >
-                  <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <span>{selectedImage ? '更換照片' : '上傳想去的地方照片'}</span>
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageChange}
-                  className="hidden"
-                />
-                {selectedImage && (
-                  <div className="relative group">
-                    <img src={selectedImage} alt="Uploaded scene" className="w-10 h-10 object-cover rounded-md border border-slate-300 shadow-sm" />
-                    <button
-                      type="button"
-                      onClick={() => setSelectedImage(null)}
-                      className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 text-[10px] leading-none hover:bg-red-600 shadow"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                )}
-              </div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1">想去哪裡獨旅？</label>
+              <input type="text" value={destination} onChange={(e) => setDestination(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-black" placeholder="例如：日本東京、台灣環島、紐約" required />
             </div>
 
             {/* 預計天數 */}
@@ -473,7 +433,7 @@ export default function Home() {
                             li: ({ children }) => <li className="leading-relaxed">{children}</li>,
                             h3: ({ children }) => <h3 className="text-base font-bold text-slate-900 mt-4 mb-2">{children}</h3>,
                             
-                            /* 💎 精緻向量 Icon 外連樣式 (極簡不突兀) */
+                            /* 💎 精緻向量 Icon 外連樣式 */
                             a: ({ href, children }) => (
                               <a
                                 href={href}
