@@ -15,10 +15,7 @@ export default function Home() {
   const [days, setDays] = useState('');
   const [styleAndInspiration, setStyleAndInspiration] = useState('');
   
-  // 自訂欄位紅字錯誤狀態
   const [errors, setErrors] = useState<{ destination?: string; days?: string }>({});
-
-  // 保留對話追問區圖片狀態
   const [chatImage, setChatImage] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
@@ -29,10 +26,15 @@ export default function Home() {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editInput, setEditInput] = useState('');
 
-  // 複製狀態紀錄
+  // 複製狀態
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // DOM 錨點 Refs
+  // 🔗 分享彈窗狀態 (Gemini Style)
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isCreatingLink, setIsCreatingLink] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
+
+  // Refs
   const chatTopRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -42,7 +44,7 @@ export default function Home() {
   const loadingDotsRef = useRef<HTMLDivElement | null>(null);
   const latestAiMsgRef = useRef<HTMLDivElement | null>(null);
 
-  // 🔗 魔法載入：讀取 URL 參數並自動執行生成 (Auto-Pilot)
+  // Auto-Pilot 載入邏輯
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
@@ -56,7 +58,6 @@ export default function Home() {
         setDays(urlDays);
         if (urlStyle) setStyleAndInspiration(urlStyle);
 
-        // 如果帶有 auto=1，延遲 800ms 讓畫面渲染後，自動點擊生成按鈕
         if (autoRun === '1') {
           setTimeout(() => {
             document.getElementById('generate-btn')?.click();
@@ -66,42 +67,29 @@ export default function Home() {
     }
   }, []);
 
-  // 🌐 升級版：直接分享行程內文 + 自動導航網址
-  const handleShare = async () => {
-    if (!destination || messages.length === 0) return;
-
-    // 抓取最後一次 AI 回覆的行程內容
-    const lastAiMsg = [...messages].reverse().find(m => m.role === 'assistant');
-    // 取前 800 字作為分享預覽，避免 LINE/IG 字數限制爆掉
-    const previewContent = lastAiMsg 
-      ? lastAiMsg.content.substring(0, 800) + (lastAiMsg.content.length > 800 ? '\n...\n(詳見完整連結✨)' : '') 
-      : '';
-
-    // 產生帶有 Auto-pilot 魔法參數的分享連結
-    const shareUrl = `${window.location.origin}?dest=${encodeURIComponent(destination)}&days=${encodeURIComponent(days)}&style=${encodeURIComponent(styleAndInspiration)}&auto=1`;
+  // 打開分享彈窗並產生連結
+  const handleOpenShareModal = () => {
+    if (!destination) return;
     
-    const shareText = `🧳 我用 AI 幫手規劃了【${destination} ${days}天】獨旅行程！\n\n${previewContent}\n\n👇 點擊下方連結，AI 會自動幫你重現這份行程：\n${shareUrl}`;
+    // 產生專屬網址
+    const url = `${window.location.origin}?dest=${encodeURIComponent(destination)}&days=${encodeURIComponent(days)}&style=${encodeURIComponent(styleAndInspiration)}&auto=1`;
+    setShareUrl(url);
+    
+    setIsShareModalOpen(true);
+    setIsCreatingLink(true);
 
-    // 判斷是否為手機裝置（手機才使用 Web Share 叫出 LINE/IG 分享單，電腦版強制用複製）
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-    if (navigator.share && isMobile) {
-      try {
-        await navigator.share({
-          text: shareText,
-        });
-      } catch (err) {
-        // 使用者取消分享不跳錯
-      }
-    } else {
-      // 電腦版自動複製完整文字與網址到剪貼簿
-      navigator.clipboard.writeText(shareText);
-      setCopiedId('share-all');
-      setTimeout(() => setCopiedId(null), 2500);
-    }
+    // 模擬「正在建立連結...」的載入感 (800ms)
+    setTimeout(() => {
+      setIsCreatingLink(false);
+    }, 800);
   };
 
-  // 對話追問區圖片讀取
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(shareUrl);
+    setCopiedId('modal-link');
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
   const handleChatImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -111,7 +99,6 @@ export default function Home() {
     }
   };
 
-  // 思考中自動滑動到三個點
   useEffect(() => {
     if (loading || isAnswering) {
       setTimeout(() => {
@@ -120,7 +107,6 @@ export default function Home() {
     }
   }, [loading, isAnswering]);
 
-  // 回答完成自動滑動至最新回答頂部
   useEffect(() => {
     if (messages.length > 0) {
       const lastMsg = messages[messages.length - 1];
@@ -132,7 +118,6 @@ export default function Home() {
     }
   }, [messages, loading, isAnswering]);
 
-  // 複製核心邏輯
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
@@ -141,7 +126,6 @@ export default function Home() {
     }, 2000);
   };
 
-  // 輸入框高度微調：預設平齊 40px，多行時動態伸展最高 120px
   const handleTextareaInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setFollowUpInput(e.target.value);
     if (textareaRef.current) {
@@ -157,7 +141,6 @@ export default function Home() {
     }
   }, [followUpInput]);
 
-  // 中斷生成
   const handleStopGeneration = () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -167,21 +150,14 @@ export default function Home() {
     setIsAnswering(false);
   };
 
-  // 一鍵生成主行程（帶有客製化 JS 驗證）
   const handleGenerate = async (e: React.FormEvent | MouseEvent) => {
     if (e && 'preventDefault' in e) e.preventDefault();
 
-    // 表單輸入手動檢查
     const newErrors: { destination?: string; days?: string } = {};
-
-    if (!destination.trim()) {
-      newErrors.destination = '請填寫想去的目的地';
-    }
-
+    if (!destination.trim()) newErrors.destination = '請填寫想去的目的地';
     if (!days.trim() || isNaN(Number(days)) || Number(days) < 1 || Number(days) > 365) {
       newErrors.days = '請輸入 1 至 365 之間的有效數字天數';
     }
-
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
@@ -189,7 +165,6 @@ export default function Home() {
 
     setErrors({});
     handleStopGeneration(); 
-
     setLoading(true);
     setMessages([]);
 
@@ -200,21 +175,14 @@ export default function Home() {
       const res = await fetch('/api/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          destination, 
-          days: `${days} 天`, 
-          style: styleAndInspiration,
-        }),
+        body: JSON.stringify({ destination, days: `${days} 天`, style: styleAndInspiration }),
         signal: controller.signal,
       });
-
       const data = await res.json();
-      const resultText = data.itinerary || data.error || '無法取得行程';
-      
-      setMessages([{ role: 'assistant', content: resultText }]);
+      setMessages([{ role: 'assistant', content: data.itinerary || data.error || '無法取得行程' }]);
     } catch (err: any) {
       if (err.name === 'AbortError') {
-        setMessages([{ role: 'assistant', content: '⏹️ 已暫停 AI 生成。您可以直接在下方詢問其他問題！' }]);
+        setMessages([{ role: 'assistant', content: '⏹️ 已暫停 AI 生成。' }]);
       } else {
         setMessages([{ role: 'assistant', content: '❌ 系統連線發生錯誤，請重試！' }]);
       }
@@ -224,13 +192,11 @@ export default function Home() {
     }
   };
 
-  // 發送追問
   const handleFollowUp = async (customQuestion?: string) => {
     const questionToAsk = customQuestion || followUpInput.trim();
     if ((!questionToAsk && !chatImage) || isAnswering || loading) return;
 
     const currentChatImage = chatImage;
-
     if (!customQuestion) {
       setFollowUpInput('');
       setChatImage(null);
@@ -238,15 +204,7 @@ export default function Home() {
     }
     
     setIsAnswering(true);
-
-    const updatedMessages: Message[] = [
-      ...messages,
-      { 
-        role: 'user', 
-        content: questionToAsk || '（請參考上傳的圖片）',
-        imageBase64: currentChatImage || undefined
-      }
-    ];
+    const updatedMessages: Message[] = [...messages, { role: 'user', content: questionToAsk || '（請參考上傳的圖片）', imageBase64: currentChatImage || undefined }];
     setMessages(updatedMessages);
 
     const controller = new AbortController();
@@ -256,19 +214,11 @@ export default function Home() {
       const res = await fetch('/api/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          destination,
-          days: `${days} 天`,
-          style: styleAndInspiration,
-          messages: updatedMessages,
-        }),
+        body: JSON.stringify({ destination, days: `${days} 天`, style: styleAndInspiration, messages: updatedMessages }),
         signal: controller.signal,
       });
-
       const data = await res.json();
-      const replyText = data.reply || data.itinerary || '無法取得回答';
-
-      setMessages([...updatedMessages, { role: 'assistant', content: replyText }]);
+      setMessages([...updatedMessages, { role: 'assistant', content: data.reply || data.itinerary || '無法取得回答' }]);
     } catch (err: any) {
       if (err.name === 'AbortError') {
         setMessages([...updatedMessages, { role: 'assistant', content: '⏹️ 已暫停回應。' }]);
@@ -281,7 +231,6 @@ export default function Home() {
     }
   };
 
-  // 編輯問題並重新發送
   const handleSaveEdit = async (index: number) => {
     if (!editInput.trim()) return;
     handleStopGeneration();
@@ -290,10 +239,7 @@ export default function Home() {
     setEditingIndex(null);
     setIsAnswering(true);
 
-    const updatedMessages: Message[] = [
-      ...messages.slice(0, index),
-      { role: 'user', content: newQuestion }
-    ];
+    const updatedMessages: Message[] = [...messages.slice(0, index), { role: 'user', content: newQuestion }];
     setMessages(updatedMessages);
 
     const controller = new AbortController();
@@ -303,16 +249,11 @@ export default function Home() {
       const res = await fetch('/api/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          destination, days: `${days} 天`, style: styleAndInspiration, messages: updatedMessages,
-        }),
+        body: JSON.stringify({ destination, days: `${days} 天`, style: styleAndInspiration, messages: updatedMessages }),
         signal: controller.signal,
       });
-
       const data = await res.json();
-      const replyText = data.reply || data.itinerary || '無法取得回答';
-
-      setMessages([...updatedMessages, { role: 'assistant', content: replyText }]);
+      setMessages([...updatedMessages, { role: 'assistant', content: data.reply || data.itinerary || '無法取得回答' }]);
     } catch (err: any) {
       if (err.name === 'AbortError') {
         setMessages([...updatedMessages, { role: 'assistant', content: '⏹️ 已暫停回應。' }]);
@@ -325,10 +266,8 @@ export default function Home() {
     }
   };
 
-  // 防誤觸發送的鍵盤邏輯
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.nativeEvent.isComposing) return;
-
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleFollowUp();
@@ -336,7 +275,114 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8 pb-40">
+    <main className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8 pb-40 relative">
+      
+      {/* 🚀 Gemini 風格分享彈窗 (Modal) */}
+      {isShareModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity duration-300">
+          {/* Modal 容器 (致敬 Gemini 的暗色卡片風格) */}
+          <div className="bg-[#1e1f20] w-full max-w-[480px] rounded-2xl shadow-2xl overflow-hidden border border-[#333537] transform transition-all scale-100 opacity-100">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-5">
+              <h3 className="text-[#e3e3e3] text-lg font-medium tracking-wide">可分享的公開連結</h3>
+              <button 
+                onClick={() => setIsShareModalOpen(false)}
+                className="text-[#a8aab0] hover:text-white p-1 rounded-full hover:bg-[#333537] transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* 內容區塊 */}
+            <div className="px-6 pb-6 space-y-5">
+              
+              {/* 網址框 */}
+              <div className="bg-[#2a2b2f] rounded-xl flex items-center p-1.5 border border-[#444746]">
+                {isCreatingLink ? (
+                  <div className="flex items-center gap-3 w-full px-3 py-2">
+                    <div className="w-4 h-4 border-2 border-[#a8aab0] border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-[#a8aab0] text-sm">正在建立連結...</span>
+                  </div>
+                ) : (
+                  <>
+                    <input 
+                      type="text" 
+                      readOnly 
+                      value={shareUrl} 
+                      className="bg-transparent text-[#e3e3e3] flex-1 px-3 py-2 text-sm focus:outline-none w-full truncate"
+                    />
+                    <button 
+                      onClick={handleCopyLink}
+                      className="shrink-0 ml-2 bg-[#e3e3e3] hover:bg-white text-[#1e1f20] px-4 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center gap-1.5"
+                    >
+                      {copiedId === 'modal-link' ? (
+                        <>
+                          <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span>已複製</span>
+                        </>
+                      ) : '複製'}
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {/* 免責聲明小字 */}
+              <div className="flex gap-2 items-start text-[#a8aab0] text-[13px] leading-relaxed">
+                <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p>
+                  任何人都能透過連結查看此獨旅行程。朋友開啟連結後，系統將自動為他們重現專屬行程規劃。
+                </p>
+              </div>
+
+              {/* 社交分享按鈕區 */}
+              {!isCreatingLink && (
+                <div className="pt-2 flex items-center justify-center gap-8 border-t border-[#333537] mt-4 pt-6 pb-2">
+                  
+                  {/* LINE */}
+                  <a href={`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(shareUrl)}`} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center gap-2 group">
+                    <div className="w-12 h-12 bg-[#06C755] rounded-full flex items-center justify-center hover:opacity-90 transition-opacity">
+                      <svg className="w-7 h-7 text-white" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M24 10.304c0-5.369-5.383-9.738-12-9.738-6.616 0-12 4.369-12 9.738 0 4.814 3.901 8.877 9.422 9.614.368.08.882.247.986.568.093.287.06.686.028 1.002-.038.375-.246 1.48-.3 1.776-.089.493-.418 2.052 1.79 1.119 2.207-.932 11.905-7.009 11.905-13.435L24 10.304z"/>
+                      </svg>
+                    </div>
+                    <span className="text-xs text-[#a8aab0] group-hover:text-white transition-colors">LINE</span>
+                  </a>
+
+                  {/* Facebook */}
+                  <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center gap-2 group">
+                    <div className="w-12 h-12 bg-[#1877F2] rounded-full flex items-center justify-center hover:opacity-90 transition-opacity">
+                      <svg className="w-7 h-7 text-white" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                      </svg>
+                    </div>
+                    <span className="text-xs text-[#a8aab0] group-hover:text-white transition-colors">Facebook</span>
+                  </a>
+
+                  {/* X (Twitter) */}
+                  <a href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(`🧳 查看我的【${destination}】獨旅行程！`)}`} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center gap-2 group">
+                    <div className="w-12 h-12 bg-black rounded-full flex items-center justify-center border border-[#333537] hover:bg-[#1a1a1a] transition-colors">
+                      <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                      </svg>
+                    </div>
+                    <span className="text-xs text-[#a8aab0] group-hover:text-white transition-colors">X</span>
+                  </a>
+
+                </div>
+              )}
+
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-2xl mx-auto space-y-8">
         
         {/* 標頭 */}
@@ -360,8 +406,6 @@ export default function Home() {
         {/* 輸入表單 */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
           <form onSubmit={handleGenerate} noValidate className="space-y-4">
-            
-            {/* 目的地欄位 */}
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1">想去哪裡獨旅？</label>
               <input 
@@ -371,21 +415,12 @@ export default function Home() {
                   setDestination(e.target.value);
                   if (errors.destination) setErrors((prev) => ({ ...prev, destination: undefined }));
                 }} 
-                className={`w-full px-4 py-2.5 bg-white border rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all ${
-                  errors.destination 
-                    ? 'border-red-500 focus:ring-red-500 bg-red-50/30' 
-                    : 'border-slate-300 focus:ring-black'
-                }`} 
+                className={`w-full px-4 py-2.5 bg-white border rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all ${errors.destination ? 'border-red-500 focus:ring-red-500 bg-red-50/30' : 'border-slate-300 focus:ring-black'}`} 
                 placeholder="例如：日本東京、台灣環島、紐約" 
               />
-              {errors.destination && (
-                <p className="mt-1.5 text-xs text-red-500 font-medium flex items-center gap-1">
-                  <span>⚠️</span> {errors.destination}
-                </p>
-              )}
+              {errors.destination && <p className="mt-1.5 text-xs text-red-500 font-medium">⚠️ {errors.destination}</p>}
             </div>
 
-            {/* 預計天數 */}
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1">預計天數 (天)</label>
               <input 
@@ -394,26 +429,15 @@ export default function Home() {
                 value={days} 
                 onChange={(e) => {
                   const numStr = e.target.value.replace(/[^0-9]/g, '');
-                  if (numStr === '' || Number(numStr) <= 365) {
-                    setDays(numStr);
-                  }
+                  if (numStr === '' || Number(numStr) <= 365) setDays(numStr);
                   if (errors.days) setErrors((prev) => ({ ...prev, days: undefined }));
                 }} 
-                className={`w-full px-4 py-2.5 bg-white border rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all ${
-                  errors.days 
-                    ? 'border-red-500 focus:ring-red-500 bg-red-50/30' 
-                    : 'border-slate-300 focus:ring-black'
-                }`} 
+                className={`w-full px-4 py-2.5 bg-white border rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all ${errors.days ? 'border-red-500 focus:ring-red-500 bg-red-50/30' : 'border-slate-300 focus:ring-black'}`} 
                 placeholder="請輸入數字，限定最多 365 天" 
               />
-              {errors.days && (
-                <p className="mt-1.5 text-xs text-red-500 font-medium flex items-center gap-1">
-                  <span>⚠️</span> {errors.days}
-                </p>
-              )}
+              {errors.days && <p className="mt-1.5 text-xs text-red-500 font-medium">⚠️ {errors.days}</p>}
             </div>
 
-            {/* 獨旅風格與靈感 (選填) */}
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1">獨旅風格與靈感 (選填) 🔗</label>
               <input 
@@ -423,9 +447,7 @@ export default function Home() {
                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-black transition-all text-sm" 
                 placeholder="例如：探索登山、夜生活，或貼上連結" 
               />
-              <p className="mt-1.5 text-xs text-slate-400">
-                可輸入旅遊喜好，或貼上 IG / YouTube 公開景點圖片或影片連結
-              </p>
+              <p className="mt-1.5 text-xs text-slate-400">可輸入旅遊喜好，或貼上 IG / YouTube 公開景點圖片或影片連結</p>
             </div>
 
             <button id="generate-btn" type="submit" className="w-full bg-black text-white font-medium py-3 rounded-lg hover:bg-slate-800 transition-colors mt-2">
@@ -434,7 +456,7 @@ export default function Home() {
           </form>
         </div>
 
-        {/* IG 客製化諮詢導流卡片 */}
+        {/* IG 導流卡片 */}
         <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-6 rounded-2xl shadow-sm text-center space-y-4">
           <p className="text-base font-medium tracking-wide">想要來場更客製化的旅程規劃嗎？</p>
           <a href="https://www.instagram.com/allonetrip_perry/" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 bg-white text-slate-900 px-6 py-2.5 rounded-lg font-semibold text-sm hover:bg-slate-100 transition-all transform hover:-translate-y-0.5 shadow-sm">
@@ -446,7 +468,7 @@ export default function Home() {
         {(messages.length > 0 || loading) && (
           <div ref={chatTopRef} className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 scroll-mt-6">
             
-            {/* 📍 標頭 + 🔗 分享按鈕區 */}
+            {/* 📍 標頭 + 🔗 Gemini 分享按鈕 */}
             <h2 className="text-xl font-bold text-slate-900 border-b border-slate-100 pb-3 flex items-center justify-between gap-2">
               <span>📍 專屬獨旅行程對話</span>
               <div className="flex items-center gap-2">
@@ -454,13 +476,13 @@ export default function Home() {
                   <span className="text-sm font-normal text-slate-400 animate-pulse">AI 思考中...</span>
                 ) : (
                   <button
-                    onClick={handleShare}
-                    className="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border border-slate-200 shadow-sm"
+                    onClick={handleOpenShareModal}
+                    className="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-black text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-sm"
                   >
-                    <svg className="w-3.5 h-3.5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                     </svg>
-                    <span>{copiedId === 'share-all' ? '✨ 已複製行程與連結！' : '分享此行程'}</span>
+                    <span>分享此行程</span>
                   </button>
                 )}
               </div>
@@ -559,7 +581,6 @@ export default function Home() {
                             li: ({ children }) => <li className="leading-relaxed">{children}</li>,
                             h3: ({ children }) => <h3 className="text-base font-bold text-slate-900 mt-4 mb-2">{children}</h3>,
                             
-                            /* 外連 Icon 樣式 */
                             a: ({ href, children }) => (
                               <a
                                 href={href}
@@ -576,7 +597,6 @@ export default function Home() {
                               </a>
                             ),
 
-                            /* 表格組件 */
                             table: ({ children }) => (
                               <div className="overflow-x-auto my-4 rounded-xl border border-slate-200 bg-white shadow-sm">
                                 <table className="min-w-full divide-y divide-slate-200 text-sm text-slate-700">{children}</table>
@@ -642,7 +662,6 @@ export default function Home() {
         <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-slate-200 p-3 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-50">
           <div className="max-w-2xl mx-auto space-y-2">
             
-            {/* 追問區圖片預覽 */}
             {chatImage && (
               <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-lg w-fit">
                 <img src={chatImage} alt="Chat attachment" className="w-8 h-8 object-cover rounded border border-slate-300" />

@@ -1,35 +1,46 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
+import type { Metadata } from 'next'
+import { Inter } from 'next/font/google'
+import './globals.css'
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+const inter = Inter({ subsets: ['latin'] })
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
+// 🚀 網站全域與社群分享 (Open Graph) SEO 設定
 export const metadata: Metadata = {
-  title: "Perry 獨旅 AI 幫手",
-  description: "一鍵幫你規劃最適合一個人的獨旅行程！",
-};
+  title: 'Perry 獨旅 AI 幫手 🧳',
+  description: '@allonetrip_perry 專屬行程規劃，一鍵為你打造專屬的獨旅行程！',
+  openGraph: {
+    title: 'Perry 獨旅 AI 幫手 🧳',
+    description: '一鍵自動規劃你的專屬獨旅行程！從景點到機票，AI 幫你搞定。',
+    url: 'https://allonetrip-ai.vercel.app/',
+    siteName: 'Perry 獨旅 AI 幫手',
+    images: [
+      {
+        // 幫你配好一張超有質感的獨旅/探索風高畫質縮圖 (自動裁切為 1200x630 最佳比例)
+        url: 'https://images.unsplash.com/photo-1488085061387-422e29b40080?q=80&w=1200&h=630&auto=format&fit=crop', 
+        width: 1200,
+        height: 630,
+        alt: 'Perry 獨旅 AI 幫手 - 行程規劃預覽',
+      },
+    ],
+    locale: 'zh_TW',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Perry 獨旅 AI 幫手 🧳',
+    description: '一鍵自動規劃你的專屬獨旅行程！從景點到機票，AI 幫你搞定。',
+    images: ['https://images.unsplash.com/photo-1488085061387-422e29b40080?q=80&w=1200&h=630&auto=format&fit=crop'],
+  },
+}
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: {
+  children: React.ReactNode
+}) {
   return (
     <html lang="zh-TW">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-        suppressHydrationWarning
-      >
-        {children}
-      </body>
+      <body className={inter.className}>{children}</body>
     </html>
-  );
+  )
 }
