@@ -15,6 +15,9 @@ export default function Home() {
   const [days, setDays] = useState('');
   const [styleAndInspiration, setStyleAndInspiration] = useState('');
   
+  // 🎯 自訂欄位紅字錯誤狀態
+  const [errors, setErrors] = useState<{ destination?: string; days?: string }>({});
+
   // 保留對話追問區圖片狀態
   const [chatImage, setChatImage] = useState<string | null>(null);
 
@@ -105,9 +108,29 @@ export default function Home() {
     setIsAnswering(false);
   };
 
-  // 一鍵生成主行程
+  // 一鍵生成主行程（帶有客製化 JS 驗證）
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // 🎯 1. 表單輸入手動檢查
+    const newErrors: { destination?: string; days?: string } = {};
+
+    if (!destination.trim()) {
+      newErrors.destination = '請填寫想去的目的地';
+    }
+
+    if (!days.trim() || isNaN(Number(days)) || Number(days) < 1 || Number(days) > 365) {
+      newErrors.days = '請輸入 1 至 365 之間的有效數字天數';
+    }
+
+    // 若有錯誤則阻擋送出，並更新紅字 UI
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    // 驗證通過，清空錯誤
+    setErrors({});
     handleStopGeneration(); 
 
     setLoading(true);
@@ -277,35 +300,65 @@ export default function Home() {
           </p>
         </div>
 
-        {/* 輸入表單 */}
+        {/* 輸入表單 (帶有 noValidate 關閉瀏覽器原生醜氣泡) */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-          <form onSubmit={handleGenerate} className="space-y-4">
+          <form onSubmit={handleGenerate} noValidate className="space-y-4">
+            
+            {/* 目的地欄位 */}
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1">想去哪裡獨旅？</label>
-              <input type="text" value={destination} onChange={(e) => setDestination(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-black" placeholder="例如：日本東京、台灣環島、紐約" required />
+              <input 
+                type="text" 
+                value={destination} 
+                onChange={(e) => {
+                  setDestination(e.target.value);
+                  if (errors.destination) setErrors((prev) => ({ ...prev, destination: undefined }));
+                }} 
+                className={`w-full px-4 py-2.5 bg-white border rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all ${
+                  errors.destination 
+                    ? 'border-red-500 focus:ring-red-500 bg-red-50/30' 
+                    : 'border-slate-300 focus:ring-black'
+                }`} 
+                placeholder="例如：日本東京、台灣環島、紐約" 
+              />
+              {/* 🎯 欄位下方專屬紅字提示 */}
+              {errors.destination && (
+                <p className="mt-1.5 text-xs text-red-500 font-medium flex items-center gap-1">
+                  <span>⚠️</span> {errors.destination}
+                </p>
+              )}
             </div>
 
             {/* 預計天數 */}
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1">預計天數 (天)</label>
               <input 
-                type="number" 
-                min="1" 
-                max="365"
+                type="text" 
+                inputMode="numeric"
                 value={days} 
                 onChange={(e) => {
                   const numStr = e.target.value.replace(/[^0-9]/g, '');
                   if (numStr === '' || Number(numStr) <= 365) {
                     setDays(numStr);
                   }
+                  if (errors.days) setErrors((prev) => ({ ...prev, days: undefined }));
                 }} 
-                className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-black" 
+                className={`w-full px-4 py-2.5 bg-white border rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all ${
+                  errors.days 
+                    ? 'border-red-500 focus:ring-red-500 bg-red-50/30' 
+                    : 'border-slate-300 focus:ring-black'
+                }`} 
                 placeholder="請輸入數字，限定最多 365 天" 
-                required 
               />
+              {/* 🎯 欄位下方專屬紅字提示 */}
+              {errors.days && (
+                <p className="mt-1.5 text-xs text-red-500 font-medium flex items-center gap-1">
+                  <span>⚠️</span> {errors.days}
+                </p>
+              )}
             </div>
 
-            {/* 獨旅風格與靈感 (選填) 欄位與更新後的文案 */}
+            {/* 獨旅風格與靈感 (選填) */}
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1">獨旅風格與靈感 (選填) 🔗</label>
               <input 
@@ -435,7 +488,7 @@ export default function Home() {
                             li: ({ children }) => <li className="leading-relaxed">{children}</li>,
                             h3: ({ children }) => <h3 className="text-base font-bold text-slate-900 mt-4 mb-2">{children}</h3>,
                             
-                            /* 💎 精緻向量 Icon 外連樣式 */
+                            /* 外連 Icon 樣式 */
                             a: ({ href, children }) => (
                               <a
                                 href={href}
