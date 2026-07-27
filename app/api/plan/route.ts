@@ -47,7 +47,7 @@ export async function POST(req: Request) {
         "X-Title": "Solo Travel AI Agent",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.0-flash-exp:free", // 已修正為可連線的免費模型
+        model: "openai/gpt-4o-mini", // 切換為極度穩定且反應飛快的官方模型
         messages: apiMessages,
         temperature: 0.7,
       }),
