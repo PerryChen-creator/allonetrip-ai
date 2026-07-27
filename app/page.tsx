@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm'; // 👈 引入 GFM 表格擴充套件
 
 interface Message {
   role: 'user' | 'assistant';
@@ -216,9 +217,8 @@ export default function Home() {
     }
   };
 
-  // 防誤觸發送的關鍵鍵盤邏輯
+  // 防誤觸發送的鍵盤邏輯
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // 只要處於中文輸入法選字組字中 (isComposing)，按 Enter 直接忽略不發送
     if (e.nativeEvent.isComposing) return;
 
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -372,14 +372,28 @@ export default function Home() {
                       )}
                     </div>
                   ) : (
-                    <div className="bg-slate-50 text-slate-800 p-5 rounded-2xl rounded-tl-none text-sm border border-slate-100 leading-relaxed shadow-sm space-y-3">
+                    <div className="bg-slate-50 text-slate-800 p-5 rounded-2xl rounded-tl-none text-sm border border-slate-100 leading-relaxed shadow-sm space-y-3 overflow-hidden">
+                      {/* ReactMarkdown 表格與排版美化 */}
                       <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
                         components={{
                           p: ({ children }) => <p className="mb-3 last:mb-0 leading-relaxed whitespace-pre-wrap">{children}</p>,
                           ul: ({ children }) => <ul className="list-disc pl-5 mb-3 space-y-1">{children}</ul>,
                           ol: ({ children }) => <ol className="list-decimal pl-5 mb-3 space-y-1">{children}</ol>,
                           li: ({ children }) => <li className="leading-relaxed">{children}</li>,
                           h3: ({ children }) => <h3 className="text-base font-bold text-slate-900 mt-4 mb-2">{children}</h3>,
+                          
+                          /* 🈁 精緻表格組件 (支援手機橫向滾動) */
+                          table: ({ children }) => (
+                            <div className="overflow-x-auto my-4 rounded-xl border border-slate-200 bg-white shadow-sm">
+                              <table className="min-w-full divide-y divide-slate-200 text-sm text-slate-700">{children}</table>
+                            </div>
+                          ),
+                          thead: ({ children }) => <thead className="bg-slate-100/80 font-semibold text-slate-900 border-b border-slate-200">{children}</thead>,
+                          tbody: ({ children }) => <tbody className="divide-y divide-slate-100 bg-white">{children}</tbody>,
+                          tr: ({ children }) => <tr className="hover:bg-slate-50/80 transition-colors">{children}</tr>,
+                          th: ({ children }) => <th className="px-4 py-3 text-left font-bold text-xs tracking-wider text-slate-700 uppercase">{children}</th>,
+                          td: ({ children }) => <td className="px-4 py-3 whitespace-nowrap leading-relaxed">{children}</td>,
                         }}
                       >
                         {msg.content}
