@@ -7,6 +7,7 @@ import remarkGfm from 'remark-gfm';
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  imageBase64?: string;
 }
 
 export default function Home() {
@@ -15,6 +16,11 @@ export default function Home() {
   const [style, setStyle] = useState('');
   const [inspiration, setInspiration] = useState('');
   
+  // 主表單圖片
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  // 對話追問區圖片
+  const [chatImage, setChatImage] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(false);
   const [isAnswering, setIsAnswering] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -30,13 +36,34 @@ export default function Home() {
   const chatTopRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const chatFileInputRef = useRef<HTMLInputElement | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // 🎯 精確滾動控制 Refs
   const loadingDotsRef = useRef<HTMLDivElement | null>(null);
   const latestAiMsgRef = useRef<HTMLDivElement | null>(null);
 
-  // 1️⃣ 思考中狀態：自動滑動確保三個點出現在視野正中央
+  // 主表單圖片讀取
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => setSelectedImage(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // 對話追問區圖片讀取
+  const handleChatImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => setChatImage(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // 思考中自動滑動到三個點
   useEffect(() => {
     if (loading || isAnswering) {
       setTimeout(() => {
@@ -45,7 +72,7 @@ export default function Home() {
     }
   }, [loading, isAnswering]);
 
-  // 2️⃣ 回答完成狀態：自動精準滑動至「最新 AI 回答的頂部」
+  // 回答完成自動滑動至最新回答頂部
   useEffect(() => {
     if (messages.length > 0) {
       const lastMsg = messages[messages.length - 1];
@@ -66,18 +93,19 @@ export default function Home() {
     }, 2000);
   };
 
-  // 輸入框自動調整高度
+  // 🎯 輸入框高度微調：預設平齊 40px，多行時動態伸展最高 120px
   const handleTextareaInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setFollowUpInput(e.target.value);
     if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
+      textareaRef.current.style.height = '40px';
+      const scrollH = textareaRef.current.scrollHeight;
+      textareaRef.current.style.height = `${Math.min(Math.max(scrollH, 40), 120)}px`;
     }
   };
 
   useEffect(() => {
     if (followUpInput === '' && textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = '40px';
     }
   }, [followUpInput]);
 
@@ -110,7 +138,8 @@ export default function Home() {
           destination, 
           days: `${days} 天`, 
           style, 
-          inspiration 
+          inspiration,
+          imageBase64: selectedImage,
         }),
         signal: controller.signal,
       });
@@ -131,21 +160,28 @@ export default function Home() {
     }
   };
 
-  // 發送追問
+  // 發送追問 (支援上傳圖片)
   const handleFollowUp = async (customQuestion?: string) => {
     const questionToAsk = customQuestion || followUpInput.trim();
-    if (!questionToAsk || isAnswering || loading) return;
+    if ((!questionToAsk && !chatImage) || isAnswering || loading) return;
+
+    const currentChatImage = chatImage;
 
     if (!customQuestion) {
       setFollowUpInput('');
-      if (textareaRef.current) textareaRef.current.style.height = 'auto';
+      setChatImage(null);
+      if (textareaRef.current) textareaRef.current.style.height = '40px';
     }
     
     setIsAnswering(true);
 
     const updatedMessages: Message[] = [
       ...messages,
-      { role: 'user', content: questionToAsk }
+      { 
+        role: 'user', 
+        content: questionToAsk || '（請參考上傳的圖片）',
+        imageBase64: currentChatImage || undefined
+      }
     ];
     setMessages(updatedMessages);
 
@@ -252,8 +288,44 @@ export default function Home() {
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
           <form onSubmit={handleGenerate} className="space-y-4">
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">想去哪裡獨旅？</label>
-              <input type="text" value={destination} onChange={(e) => setDestination(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-black" placeholder="例如：日本東京、台灣環島、紐約" required />
+              <label className="block text-sm font-semibold text-slate-700 mb-1">想去哪裡獨旅？ (選填，可直接上傳景點照片)</label>
+              <input type="text" value={destination} onChange={(e) => setDestination(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-black" placeholder="例如：日本東京、台灣環島、紐約" />
+            </div>
+
+            {/* 📸 景點照片上傳區 */}
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-1">景點照片靈感 (選填) 🖼️</label>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-lg border border-slate-300 transition-colors flex items-center gap-1.5"
+                >
+                  <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span>{selectedImage ? '更換照片' : '上傳想去的地方照片'}</span>
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="hidden"
+                />
+                {selectedImage && (
+                  <div className="relative group">
+                    <img src={selectedImage} alt="Uploaded scene" className="w-10 h-10 object-cover rounded-md border border-slate-300 shadow-sm" />
+                    <button
+                      type="button"
+                      onClick={() => setSelectedImage(null)}
+                      className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 text-[10px] leading-none hover:bg-red-600 shadow"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* 預計天數 */}
@@ -339,8 +411,11 @@ export default function Home() {
                           </div>
                         ) : (
                           <>
-                            <div className="bg-slate-900 text-white p-4 rounded-2xl rounded-tr-none text-sm whitespace-pre-wrap leading-relaxed max-w-[85%] shadow-sm">
-                              {msg.content}
+                            <div className="bg-slate-900 text-white p-4 rounded-2xl rounded-tr-none text-sm whitespace-pre-wrap leading-relaxed max-w-[85%] shadow-sm space-y-2">
+                              {msg.imageBase64 && (
+                                <img src={msg.imageBase64} alt="User attachment" className="max-w-[200px] max-h-[150px] object-cover rounded-lg border border-slate-700 shadow-sm" />
+                              )}
+                              <p>{msg.content}</p>
                             </div>
                             
                             {/* 用戶訊息 Icon 操作按鈕區 */}
@@ -398,19 +473,18 @@ export default function Home() {
                             li: ({ children }) => <li className="leading-relaxed">{children}</li>,
                             h3: ({ children }) => <h3 className="text-base font-bold text-slate-900 mt-4 mb-2">{children}</h3>,
                             
-                            /* WCAG 無障礙外部連結組件 */
+                            /* 💎 精緻向量 Icon 外連樣式 (極簡不突兀) */
                             a: ({ href, children }) => (
                               <a
                                 href={href}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 underline font-medium hover:bg-blue-50/80 rounded px-1 py-0.5 transition-colors align-baseline"
+                                className="inline-flex items-center gap-0.5 text-blue-600 hover:text-blue-800 font-medium underline underline-offset-4 decoration-blue-300 hover:decoration-blue-600 transition-colors mx-0.5"
                                 title={`${typeof children === 'string' ? children : '外部連結'} (將在新的分頁開啟)`}
                               >
                                 <span>{children}</span>
-                                <svg className="w-3.5 h-3.5 inline shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14L21 3m0 0h-6m6 0v6" />
+                                <svg className="w-3 h-3 text-blue-500 opacity-80 shrink-0 inline-block ml-0.5 relative -top-[1px]" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
                                 </svg>
                                 <span className="sr-only">(另開新視窗)</span>
                               </a>
@@ -460,7 +534,6 @@ export default function Home() {
                 );
               })}
 
-              {/* 思考中 3 個點的彈性容器與滾動錨點 */}
               {(loading || isAnswering) && (
                 <div ref={loadingDotsRef} className="bg-slate-50 text-slate-500 p-4 rounded-2xl rounded-tl-none text-sm border border-slate-100 w-fit scroll-mt-6">
                   <div className="flex gap-1.5">
@@ -478,36 +551,77 @@ export default function Home() {
 
       </div>
 
-      {/* 固定底部的輸入框 */}
+      {/* 🎯 固定底部的對話追問欄位 (預設 40px 精確平齊，支援📷圖片上傳) */}
       {(messages.length > 0 || loading || isAnswering) && (
         <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-slate-200 p-3 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-50">
-          <div className="max-w-2xl mx-auto flex items-end gap-2">
-            <textarea
-              ref={textareaRef}
-              value={followUpInput}
-              onChange={handleTextareaInput}
-              onKeyDown={handleKeyDown}
-              placeholder="繼續追問 (Shift+Enter 換行, Enter 發送)..."
-              className="flex-1 px-4 py-3 text-sm bg-slate-50 border border-slate-300 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition-all resize-none overflow-y-auto leading-relaxed shadow-inner"
-              style={{ minHeight: '46px', maxHeight: '120px' }}
-            />
-
-            {(loading || isAnswering) ? (
-              <button
-                onClick={handleStopGeneration}
-                className="bg-red-600 text-white px-5 py-3 text-sm rounded-xl hover:bg-red-700 transition-colors font-medium shrink-0 shadow-sm flex items-center justify-center min-h-[46px]"
-              >
-                ⏹️ 暫停
-              </button>
-            ) : (
-              <button
-                onClick={() => handleFollowUp()}
-                disabled={!followUpInput.trim()}
-                className="bg-black text-white px-5 py-3 text-sm rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed font-medium shrink-0 shadow-sm flex items-center justify-center min-h-[46px]"
-              >
-                發送
-              </button>
+          <div className="max-w-2xl mx-auto space-y-2">
+            
+            {/* 追問區圖片預覽 */}
+            {chatImage && (
+              <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-lg w-fit">
+                <img src={chatImage} alt="Chat attachment" className="w-8 h-8 object-cover rounded border border-slate-300" />
+                <span className="text-xs text-slate-500">照片已載入</span>
+                <button 
+                  type="button" 
+                  onClick={() => setChatImage(null)} 
+                  className="text-red-500 hover:text-red-700 text-xs ml-1 font-bold px-1"
+                >
+                  ✕
+                </button>
+              </div>
             )}
+
+            <div className="flex items-end gap-2">
+              {/* 📷 對話框圖片上傳按鈕 (高 40px) */}
+              <button
+                type="button"
+                onClick={() => chatFileInputRef.current?.click()}
+                className="h-[40px] w-[40px] bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl flex items-center justify-center shrink-0 border border-slate-300 transition-colors shadow-sm"
+                title="上傳圖片發問"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </button>
+              <input
+                ref={chatFileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleChatImageChange}
+                className="hidden"
+              />
+
+              {/* 追問文字輸入框 (預設高 40px，與左右按鈕 1:1 精確平齊) */}
+              <textarea
+                ref={textareaRef}
+                rows={1}
+                value={followUpInput}
+                onChange={handleTextareaInput}
+                onKeyDown={handleKeyDown}
+                placeholder="繼續追問 (Shift+Enter 換行, Enter 發送)..."
+                className="flex-1 px-3.5 py-[9px] text-sm bg-slate-50 border border-slate-300 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition-all resize-none overflow-y-auto leading-[20px] shadow-inner"
+                style={{ height: '40px', minHeight: '40px', maxHeight: '120px' }}
+              />
+
+              {/* 發送 / 暫停按鈕 (高 40px) */}
+              {(loading || isAnswering) ? (
+                <button
+                  onClick={handleStopGeneration}
+                  className="bg-red-600 text-white px-4 h-[40px] text-sm rounded-xl hover:bg-red-700 transition-colors font-medium shrink-0 shadow-sm flex items-center justify-center"
+                >
+                  ⏹️ 暫停
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleFollowUp()}
+                  disabled={!followUpInput.trim() && !chatImage}
+                  className="bg-black text-white px-4 h-[40px] text-sm rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-30 disabled:cursor-not-allowed font-medium shrink-0 shadow-sm flex items-center justify-center"
+                >
+                  發送
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

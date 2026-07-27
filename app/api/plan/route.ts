@@ -3,37 +3,59 @@ import { NextResponse } from 'next/server';
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { destination, days, style, inspiration, messages = [] } = body;
+    const { destination, days, style, inspiration, imageBase64, messages = [] } = body;
 
-    // 設定防腦補 System Prompt
     const systemPrompt = `
 你是一位專業、貼心且幽默的獨旅規劃專家 Perry (@allonetrip_perry)。
 
-【🚨 核心防護機制：目的地檢查與防腦補規則】
-1. **檢驗目的地**：請先評估使用者輸入的目的地（${destination}）是否為明確、真實的旅遊地點。
-2. **錯字與模糊處理**：
-   - 如果目的地為明顯錯字（例如：「日天」、「東台」）、模糊無效詞彙（例如：「隨便」、「到處」、「火星」）或無法確定具體地點：
-     - ❌ **絕對禁止** 擅自幫使用者盲猜特定地點（例如：不能自行決定幫他排「日本中部」）並直接輸出行程。
-     - ❌ **絕對禁止** 進行無意義的字面揶揄或解讀。
-     - ✅ **必須做到**：用親切幽默的口吻告知使用者目的地似乎有錯字或太模糊，詢問確認，並引導他再次點擊生成或進行追問。
-3. **目的地明確時**：
-   - 根據【目的地：${destination}】、【天數：${days}】、【風格：${style}】與【靈感：${inspiration || '無'}】，為他規劃兼具獨旅特色與絕佳體驗的專屬行程。
-   - 條理分明，善用 Markdown 標題與清單，段落間要有良好的空行提高易讀性。
+【🚨 核心機制與網址連結規範】
+1. **圖片與景點辨識**：若使用者有上傳照片（包含初次提交或後續對話追問），請辨識照片中的景點、建築或風格，親切告知辨識結果並將其納入行程。
+2. **網址超連結規範（極重要）**：
+   - 必須使用標準 Markdown 連結格式：\`[顯示文字](https://...)\`。
+   - ❌ **絕對禁止** 在連結文字內或連結後方手動添加任何符號（例如禁止帶有 ↗, ⎘, 🔗, 🗗 等符號），圖示將由前端 UI 自動渲染。
+   - 飯店：\`[Booking.com 預訂](https://www.booking.com)\` 或 \`[Agoda 預訂](https://www.agoda.com)\`
+   - 地圖：\`[Google Map 導航](https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(destination || '景點')})\`
+   - 機票：\`[Google Flights 機票查詢](https://www.google.com/travel/flights)\`
+3. **排版**：條理分明，善用 Markdown 標題與表格。
 `;
+
+    // 格式化包含文字與圖片的 Content
+    const formatUserContent = (text: string, imgData?: string) => {
+      if (imgData) {
+        return [
+          { type: 'text', text: text },
+          { type: 'image_url', image_url: { url: imgData } }
+        ];
+      }
+      return text;
+    };
 
     let apiMessages: any[] = [];
 
     if (messages.length > 0) {
+      // 處理對話歷史，若最後一條 user 訊息包含圖片則啟用 Vision
+      const processedMessages = messages.map((m: any, idx: number) => {
+        if (idx === messages.length - 1 && m.role === 'user' && m.imageBase64) {
+          return {
+            role: 'user',
+            content: formatUserContent(m.content, m.imageBase64)
+          };
+        }
+        return { role: m.role, content: m.content };
+      });
+
       apiMessages = [
         { role: 'system', content: systemPrompt },
-        ...messages
+        ...processedMessages
       ];
     } else {
+      const userPromptText = `我想去【${destination || '照片中的景點'}】獨旅【${days}】，風格是【${style}】${inspiration ? `，靈感參考：${inspiration}` : ''}。請為我規劃行程！`;
+      
       apiMessages = [
         { role: 'system', content: systemPrompt },
         { 
           role: 'user', 
-          content: `我想去【${destination}】獨旅【${days}】，風格是【${style}】${inspiration ? `，靈感參考：${inspiration}` : ''}。請為我規劃行程！` 
+          content: formatUserContent(userPromptText, imageBase64)
         }
       ];
     }
@@ -47,7 +69,7 @@ export async function POST(req: Request) {
         "X-Title": "Solo Travel AI Agent",
       },
       body: JSON.stringify({
-        model: "openai/gpt-4o-mini", // 切換為極度穩定且反應飛快的官方模型
+        model: "openai/gpt-4o-mini", // 支援多模態 Vision
         messages: apiMessages,
         temperature: 0.7,
       }),
@@ -63,14 +85,10 @@ export async function POST(req: Request) {
       });
     } else {
       const errorMsg = data.error?.message || data.message || JSON.stringify(data.error) || "OpenRouter 驗證失敗";
-      console.error("OpenRouter API Error:", data);
-      return NextResponse.json({ 
-        error: `❌ OpenRouter API 錯誤：${errorMsg}` 
-      }, { status: 500 });
+      return NextResponse.json({ error: `❌ OpenRouter API 錯誤：${errorMsg}` }, { status: 500 });
     }
 
   } catch (error: any) {
-    console.error("API Exception Error:", error);
     return NextResponse.json({ error: `❌ 系統連線失敗：${error.message || '請檢查網路'}` }, { status: 500 });
   }
 }
