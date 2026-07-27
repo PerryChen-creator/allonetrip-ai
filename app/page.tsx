@@ -13,8 +13,8 @@ interface Message {
 export default function Home() {
   const [destination, setDestination] = useState('');
   const [days, setDays] = useState('');
-  const [style, setStyle] = useState('');
-  const [inspiration, setInspiration] = useState('');
+  // 將獨旅風格與靈感連結合併為單一選填欄位
+  const [styleAndInspiration, setStyleAndInspiration] = useState('');
   
   // 保留對話追問區圖片狀態
   const [chatImage, setChatImage] = useState<string | null>(null);
@@ -124,8 +124,7 @@ export default function Home() {
         body: JSON.stringify({ 
           destination, 
           days: `${days} 天`, 
-          style, 
-          inspiration,
+          style: styleAndInspiration, // 整合發送風格與靈感
         }),
         signal: controller.signal,
       });
@@ -146,7 +145,7 @@ export default function Home() {
     }
   };
 
-  // 發送追問 (支援上傳圖片)
+  // 發送追問
   const handleFollowUp = async (customQuestion?: string) => {
     const questionToAsk = customQuestion || followUpInput.trim();
     if ((!questionToAsk && !chatImage) || isAnswering || loading) return;
@@ -181,8 +180,7 @@ export default function Home() {
         body: JSON.stringify({
           destination,
           days: `${days} 天`,
-          style,
-          inspiration,
+          style: styleAndInspiration,
           messages: updatedMessages,
         }),
         signal: controller.signal,
@@ -227,7 +225,7 @@ export default function Home() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          destination, days: `${days} 天`, style, inspiration, messages: updatedMessages,
+          destination, days: `${days} 天`, style: styleAndInspiration, messages: updatedMessages,
         }),
         signal: controller.signal,
       });
@@ -262,7 +260,7 @@ export default function Home() {
     <main className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8 pb-40">
       <div className="max-w-2xl mx-auto space-y-8">
         
-        {/* 標頭 (IG 帳號設為超連結可另開新頁) */}
+        {/* 標頭 */}
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-extrabold text-slate-900 sm:text-4xl">
             🧳 獨旅 AI 幫手
@@ -308,14 +306,16 @@ export default function Home() {
               />
             </div>
 
+            {/* 🎯 合併後的「獨旅風格與靈感 (選填)」欄位 */}
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">獨旅風格</label>
-              <input type="text" value={style} onChange={(e) => setStyle(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-black" placeholder="例如：探索登山景點、豐富夜生活" required />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">旅行靈感 (選填) 🔗</label>
-              <input type="text" value={inspiration} onChange={(e) => setInspiration(e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-black" placeholder="請貼上公開旅行影片或圖片連結" />
+              <label className="block text-sm font-semibold text-slate-700 mb-1">獨旅風格與靈感 (選填) 🔗</label>
+              <input 
+                type="text" 
+                value={styleAndInspiration} 
+                onChange={(e) => setStyleAndInspiration(e.target.value)} 
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-black transition-all" 
+                placeholder="輸入偏好（如：探索登山、夜生活）或貼上公開影片/圖片連結" 
+              />
             </div>
 
             <button type="submit" className="w-full bg-black text-white font-medium py-3 rounded-lg hover:bg-slate-800 transition-colors mt-2">
@@ -433,7 +433,7 @@ export default function Home() {
                             li: ({ children }) => <li className="leading-relaxed">{children}</li>,
                             h3: ({ children }) => <h3 className="text-base font-bold text-slate-900 mt-4 mb-2">{children}</h3>,
                             
-                            /* 💎 精緻向量 Icon 外連樣式 */
+                            /* 外部連結向量 Icon 樣式 */
                             a: ({ href, children }) => (
                               <a
                                 href={href}
@@ -511,7 +511,7 @@ export default function Home() {
 
       </div>
 
-      {/* 🎯 固定底部的對話追問欄位 (預設 40px 精確平齊，支援📷圖片上傳) */}
+      {/* 固定底部的對話追問欄位 */}
       {(messages.length > 0 || loading || isAnswering) && (
         <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-slate-200 p-3 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-50">
           <div className="max-w-2xl mx-auto space-y-2">
@@ -532,7 +532,6 @@ export default function Home() {
             )}
 
             <div className="flex items-end gap-2">
-              {/* 📷 對話框圖片上傳按鈕 (高 40px) */}
               <button
                 type="button"
                 onClick={() => chatFileInputRef.current?.click()}
@@ -552,7 +551,6 @@ export default function Home() {
                 className="hidden"
               />
 
-              {/* 追問文字輸入框 (預設高 40px，與左右按鈕 1:1 精確平齊) */}
               <textarea
                 ref={textareaRef}
                 rows={1}
@@ -564,7 +562,6 @@ export default function Home() {
                 style={{ height: '40px', minHeight: '40px', maxHeight: '120px' }}
               />
 
-              {/* 發送 / 暫停按鈕 (高 40px) */}
               {(loading || isAnswering) ? (
                 <button
                   onClick={handleStopGeneration}
