@@ -42,40 +42,60 @@ export default function Home() {
   const loadingDotsRef = useRef<HTMLDivElement | null>(null);
   const latestAiMsgRef = useRef<HTMLDivElement | null>(null);
 
-  // 🔗 朋友透過分享連結打開時，自動帶入參數
+  // 🔗 魔法載入：讀取 URL 參數並自動執行生成 (Auto-Pilot)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const urlDest = params.get('dest');
       const urlDays = params.get('days');
       const urlStyle = params.get('style');
+      const autoRun = params.get('auto');
 
-      if (urlDest) setDestination(urlDest);
-      if (urlDays) setDays(urlDays);
-      if (urlStyle) setStyleAndInspiration(urlStyle);
+      if (urlDest && urlDays) {
+        setDestination(urlDest);
+        setDays(urlDays);
+        if (urlStyle) setStyleAndInspiration(urlStyle);
+
+        // 如果帶有 auto=1，延遲 800ms 讓畫面渲染後，自動點擊生成按鈕
+        if (autoRun === '1') {
+          setTimeout(() => {
+            document.getElementById('generate-btn')?.click();
+          }, 800);
+        }
+      }
     }
   }, []);
 
-  // 🌐 一鍵分享此對話/行程邏輯 (支援原生 LINE / IG / 剪貼簿)
+  // 🌐 升級版：直接分享行程內文 + 自動導航網址
   const handleShare = async () => {
-    if (!destination) return;
+    if (!destination || messages.length === 0) return;
 
-    const shareUrl = `${window.location.origin}?dest=${encodeURIComponent(destination)}&days=${encodeURIComponent(days)}&style=${encodeURIComponent(styleAndInspiration)}`;
-    const shareText = `🧳 這是我用「獨旅 AI 幫手」規劃的【${destination} ${days} 天】專屬行程，分享給你看看！✨`;
+    // 抓取最後一次 AI 回覆的行程內容
+    const lastAiMsg = [...messages].reverse().find(m => m.role === 'assistant');
+    // 取前 800 字作為分享預覽，避免 LINE/IG 字數限制爆掉
+    const previewContent = lastAiMsg 
+      ? lastAiMsg.content.substring(0, 800) + (lastAiMsg.content.length > 800 ? '\n...\n(詳見完整連結✨)' : '') 
+      : '';
 
-    if (navigator.share) {
+    // 產生帶有 Auto-pilot 魔法參數的分享連結
+    const shareUrl = `${window.location.origin}?dest=${encodeURIComponent(destination)}&days=${encodeURIComponent(days)}&style=${encodeURIComponent(styleAndInspiration)}&auto=1`;
+    
+    const shareText = `🧳 我用 AI 幫手規劃了【${destination} ${days}天】獨旅行程！\n\n${previewContent}\n\n👇 點擊下方連結，AI 會自動幫你重現這份行程：\n${shareUrl}`;
+
+    // 判斷是否為手機裝置（手機才使用 Web Share 叫出 LINE/IG 分享單，電腦版強制用複製）
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+    if (navigator.share && isMobile) {
       try {
         await navigator.share({
-          title: `🧳 ${destination} 獨旅行程分享`,
           text: shareText,
-          url: shareUrl,
         });
       } catch (err) {
         // 使用者取消分享不跳錯
       }
     } else {
-      // 電腦版不支援 Native Share，自動複製文字與網址
-      navigator.clipboard.writeText(`${shareText}\n👉 點擊查看/規劃：${shareUrl}`);
+      // 電腦版自動複製完整文字與網址到剪貼簿
+      navigator.clipboard.writeText(shareText);
       setCopiedId('share-all');
       setTimeout(() => setCopiedId(null), 2500);
     }
@@ -121,7 +141,7 @@ export default function Home() {
     }, 2000);
   };
 
-  // 輸入框高度微調
+  // 輸入框高度微調：預設平齊 40px，多行時動態伸展最高 120px
   const handleTextareaInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setFollowUpInput(e.target.value);
     if (textareaRef.current) {
@@ -147,10 +167,11 @@ export default function Home() {
     setIsAnswering(false);
   };
 
-  // 一鍵生成主行程
-  const handleGenerate = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // 一鍵生成主行程（帶有客製化 JS 驗證）
+  const handleGenerate = async (e: React.FormEvent | MouseEvent) => {
+    if (e && 'preventDefault' in e) e.preventDefault();
 
+    // 表單輸入手動檢查
     const newErrors: { destination?: string; days?: string } = {};
 
     if (!destination.trim()) {
@@ -407,7 +428,7 @@ export default function Home() {
               </p>
             </div>
 
-            <button type="submit" className="w-full bg-black text-white font-medium py-3 rounded-lg hover:bg-slate-800 transition-colors mt-2">
+            <button id="generate-btn" type="submit" className="w-full bg-black text-white font-medium py-3 rounded-lg hover:bg-slate-800 transition-colors mt-2">
               一鍵生成專屬行程 ✨
             </button>
           </form>
@@ -439,7 +460,7 @@ export default function Home() {
                     <svg className="w-3.5 h-3.5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                     </svg>
-                    <span>{copiedId === 'share-all' ? '✨ 已複製分享內容！' : '分享此對話'}</span>
+                    <span>{copiedId === 'share-all' ? '✨ 已複製行程與連結！' : '分享此行程'}</span>
                   </button>
                 )}
               </div>
