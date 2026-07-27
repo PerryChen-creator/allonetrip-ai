@@ -216,7 +216,11 @@ export default function Home() {
     }
   };
 
+  // 防誤觸發送的關鍵鍵盤邏輯
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // 只要處於中文輸入法選字組字中 (isComposing)，按 Enter 直接忽略不發送
+    if (e.nativeEvent.isComposing) return;
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleFollowUp();
