@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm'; // 👈 引入 GFM 表格擴充套件
+import remarkGfm from 'remark-gfm';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -373,7 +373,6 @@ export default function Home() {
                     </div>
                   ) : (
                     <div className="bg-slate-50 text-slate-800 p-5 rounded-2xl rounded-tl-none text-sm border border-slate-100 leading-relaxed shadow-sm space-y-3 overflow-hidden">
-                      {/* ReactMarkdown 表格與排版美化 */}
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
                         components={{
@@ -383,7 +382,27 @@ export default function Home() {
                           li: ({ children }) => <li className="leading-relaxed">{children}</li>,
                           h3: ({ children }) => <h3 className="text-base font-bold text-slate-900 mt-4 mb-2">{children}</h3>,
                           
-                          /* 🈁 精緻表格組件 (支援手機橫向滾動) */
+                          /* 🌐 WCAG 無障礙外部連結組件 */
+                          a: ({ href, children }) => (
+                            <a
+                              href={href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 underline font-medium hover:bg-blue-50/80 rounded px-1 py-0.5 transition-colors align-baseline"
+                              title={`${typeof children === 'string' ? children : '外部連結'} (將在新的分頁開啟)`}
+                            >
+                              <span>{children}</span>
+                              {/* ↗ 斜右上網頁外部連結 Icon */}
+                              <svg className="w-3.5 h-3.5 inline shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14L21 3m0 0h-6m6 0v6" />
+                              </svg>
+                              {/* 螢幕閱讀器無障礙輔助文字 */}
+                              <span className="sr-only">(另開新視窗)</span>
+                            </a>
+                          ),
+
+                          /* 表格組件 */
                           table: ({ children }) => (
                             <div className="overflow-x-auto my-4 rounded-xl border border-slate-200 bg-white shadow-sm">
                               <table className="min-w-full divide-y divide-slate-200 text-sm text-slate-700">{children}</table>
