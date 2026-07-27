@@ -305,7 +305,7 @@ export default function Home() {
               />
             </div>
 
-            {/* 📱 針對手機排版優化：簡短 Placeholder + 輔助說明文字 */}
+            {/* 獨旅風格與靈感 (選填) 欄位與更新後的文案 */}
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1">獨旅風格與靈感 (選填) 🔗</label>
               <input 
@@ -316,7 +316,7 @@ export default function Home() {
                 placeholder="例如：探索登山、夜生活，或貼上連結" 
               />
               <p className="mt-1.5 text-xs text-slate-400">
-                可輸入風格喜好，或直接貼上 IG / YouTube 公開影片連結
+                可輸入旅遊喜好，或貼上 IG / YouTube 公開景點圖片或影片連結
               </p>
             </div>
 
