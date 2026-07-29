@@ -13,10 +13,19 @@ interface Message {
 export default function Home() {
   const [destination, setDestination] = useState('');
   
-  // 📱 響應式 Placeholder (手機版自動隱藏過長範例)
+  // 📱 響應式 Placeholder
   const [destinationPlaceholder, setDestinationPlaceholder] = useState('例如：日本環島、北歐極光之旅');
 
+  // 📅 今日日期字串 (YYYY-MM-DD)，用於設定日曆最小可選日期 (min)
+  const [todayStr, setTodayStr] = useState('');
+
   useEffect(() => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
+    setTodayStr(`${y}-${m}-${d}`);
+
     const updatePlaceholder = () => {
       if (window.innerWidth >= 640) {
         setDestinationPlaceholder('例如：日本環島、北歐極光之旅、西班牙朝聖之路');
@@ -89,7 +98,7 @@ export default function Home() {
     }
   };
 
-  // 監聽頁面滾動，超過 100px 時顯示 Top Bar
+  // 監聽頁面滾動
   useEffect(() => {
     const handleScroll = () => {
       setShowTopBar(window.scrollY > 100);
@@ -213,7 +222,10 @@ export default function Home() {
     }
     if (!startDate) {
       newErrors.startDate = '請選擇出發日期';
+    } else if (todayStr && startDate < todayStr) {
+      newErrors.startDate = '出發日期不能早於今天';
     }
+
     if (!endDate) {
       newErrors.endDate = '請選擇回程日期';
     } else if (startDate && new Date(endDate) < new Date(startDate)) {
@@ -520,7 +532,7 @@ export default function Home() {
                 {errors.destination && <p className="mt-1.5 text-xs text-red-500 font-medium">⚠️ {errors.destination}</p>}
               </div>
 
-              {/* 🗓️ 旅遊日期區間 (Trip.com 風格) */}
+              {/* 🗓️ 旅遊日期區間 (設有 min 不能選舊日期) */}
               <div className="space-y-2 p-4 bg-slate-50/80 border border-slate-200/90 rounded-xl">
                 <div className="flex items-center justify-between">
                   <label className="block text-sm font-semibold text-slate-700">旅遊日期區間 📅</label>
@@ -537,6 +549,7 @@ export default function Home() {
                     <input 
                       type="date" 
                       value={startDate} 
+                      min={todayStr || undefined}
                       onChange={(e) => handleStartDateChange(e.target.value)}
                       className={`w-full px-3.5 py-2.5 bg-white border rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 transition-all ${
                         errors.startDate || errors.dateRange ? 'border-red-500 focus:ring-red-500 bg-red-50/30' : 'border-slate-300 focus:ring-black'
@@ -549,7 +562,7 @@ export default function Home() {
                     <input 
                       type="date" 
                       value={endDate} 
-                      min={startDate || undefined}
+                      min={startDate || todayStr || undefined}
                       onChange={(e) => handleEndDateChange(e.target.value)}
                       className={`w-full px-3.5 py-2.5 bg-white border rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 transition-all ${
                         errors.endDate || errors.dateRange ? 'border-red-500 focus:ring-red-500 bg-red-50/30' : 'border-slate-300 focus:ring-black'
@@ -650,7 +663,7 @@ export default function Home() {
                                       </svg>
                                     ) : (
                                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2 2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                       </svg>
                                     )}
                                   </button>
@@ -735,7 +748,7 @@ export default function Home() {
                                   </svg>
                                 ) : (
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2 2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                   </svg>
                                 )}
                               </button>
