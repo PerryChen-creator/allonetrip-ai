@@ -12,10 +12,15 @@ interface Message {
 
 export default function Home() {
   const [destination, setDestination] = useState('');
+  
+  // 🗓️ 日期與天數狀態
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [days, setDays] = useState('');
+
   const [styleAndInspiration, setStyleAndInspiration] = useState('');
   
-  const [errors, setErrors] = useState<{ destination?: string; days?: string }>({});
+  const [errors, setErrors] = useState<{ destination?: string; days?: string; dateRange?: string }>({});
   const [chatImage, setChatImage] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
@@ -33,7 +38,7 @@ export default function Home() {
   const [isCreatingLink, setIsCreatingLink] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
 
-  // 🚀 頂部導覽列滾動狀態
+  // 🔝 頂部導覽列滾動狀態
   const [showTopBar, setShowTopBar] = useState(false);
 
   // Refs
@@ -45,6 +50,62 @@ export default function Home() {
 
   const loadingDotsRef = useRef<HTMLDivElement | null>(null);
   const latestAiMsgRef = useRef<HTMLDivElement | null>(null);
+
+  // 🔄 日期與天數連動計算邏輯
+  const handleStartDateChange = (val: string) => {
+    setStartDate(val);
+    if (errors.dateRange) setErrors(prev => ({ ...prev, dateRange: undefined }));
+
+    if (val && endDate) {
+      const start = new Date(val);
+      const end = new Date(endDate);
+      if (end >= start) {
+        const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        setDays(diffDays.toString());
+        if (errors.days) setErrors(prev => ({ ...prev, days: undefined }));
+      } else {
+        setEndDate('');
+      }
+    } else if (val && days && !isNaN(Number(days)) && Number(days) > 0) {
+      const start = new Date(val);
+      const end = new Date(start);
+      end.setDate(start.getDate() + Number(days) - 1);
+      setEndDate(end.toISOString().split('T')[0]);
+    }
+  };
+
+  const handleEndDateChange = (val: string) => {
+    setEndDate(val);
+    if (errors.dateRange) setErrors(prev => ({ ...prev, dateRange: undefined }));
+
+    if (startDate && val) {
+      const start = new Date(startDate);
+      const end = new Date(val);
+      if (end >= start) {
+        const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        setDays(diffDays.toString());
+        if (errors.days) setErrors(prev => ({ ...prev, days: undefined }));
+      } else {
+        setErrors(prev => ({ ...prev, dateRange: '回程日期不能早於出發日期' }));
+      }
+    }
+  };
+
+  const handleDaysChange = (val: string) => {
+    const numStr = val.replace(/[^0-9]/g, '');
+    if (numStr === '' || Number(numStr) <= 365) {
+      setDays(numStr);
+      if (errors.days) setErrors(prev => ({ ...prev, days: undefined }));
+
+      // 若已有出發日期，手動改天數時自動推算回程日期
+      if (startDate && numStr && Number(numStr) > 0) {
+        const start = new Date(startDate);
+        const end = new Date(start);
+        end.setDate(start.getDate() + Number(numStr) - 1);
+        setEndDate(end.toISOString().split('T')[0]);
+      }
+    }
+  };
 
   // 監聽頁面滾動，超過 100px 時顯示 Top Bar
   useEffect(() => {
@@ -61,12 +122,16 @@ export default function Home() {
       const params = new URLSearchParams(window.location.search);
       const urlDest = params.get('dest');
       const urlDays = params.get('days');
+      const urlStart = params.get('start');
+      const urlEnd = params.get('end');
       const urlStyle = params.get('style');
       const autoRun = params.get('auto');
 
       if (urlDest && urlDays) {
         setDestination(urlDest);
         setDays(urlDays);
+        if (urlStart) setStartDate(urlStart);
+        if (urlEnd) setEndDate(urlEnd);
         if (urlStyle) setStyleAndInspiration(urlStyle);
 
         if (autoRun === '1') {
@@ -81,7 +146,7 @@ export default function Home() {
   const handleOpenShareModal = () => {
     if (!destination) return;
     
-    const url = `${window.location.origin}?dest=${encodeURIComponent(destination)}&days=${encodeURIComponent(days)}&style=${encodeURIComponent(styleAndInspiration)}&auto=1`;
+    const url = `${window.location.origin}?dest=${encodeURIComponent(destination)}&days=${encodeURIComponent(days)}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}&style=${encodeURIComponent(styleAndInspiration)}&auto=1`;
     setShareUrl(url);
     
     setIsShareModalOpen(true);
@@ -161,11 +226,15 @@ export default function Home() {
   const handleGenerate = async (e: React.FormEvent | MouseEvent) => {
     if (e && 'preventDefault' in e) e.preventDefault();
 
-    const newErrors: { destination?: string; days?: string } = {};
+    const newErrors: { destination?: string; days?: string; dateRange?: string } = {};
     if (!destination.trim()) newErrors.destination = '請填寫想去的目的地';
     if (!days.trim() || isNaN(Number(days)) || Number(days) < 1 || Number(days) > 365) {
-      newErrors.days = '請輸入 1 至 365 之間的有效數字天數';
+      newErrors.days = '請輸入 1 至 365 之間的有效數字天數或選擇日期區間';
     }
+    if (startDate && endDate && new Date(endDate) < new Date(startDate)) {
+      newErrors.dateRange = '回程日期不能早於出發日期';
+    }
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
@@ -183,7 +252,13 @@ export default function Home() {
       const res = await fetch('/api/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ destination, days: `${days} 天`, style: styleAndInspiration }),
+        body: JSON.stringify({ 
+          destination, 
+          days: `${days} 天`, 
+          startDate,
+          endDate,
+          style: styleAndInspiration 
+        }),
         signal: controller.signal,
       });
       const data = await res.json();
@@ -222,7 +297,7 @@ export default function Home() {
       const res = await fetch('/api/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ destination, days: `${days} 天`, style: styleAndInspiration, messages: updatedMessages }),
+        body: JSON.stringify({ destination, days: `${days} 天`, startDate, endDate, style: styleAndInspiration, messages: updatedMessages }),
         signal: controller.signal,
       });
       const data = await res.json();
@@ -257,7 +332,7 @@ export default function Home() {
       const res = await fetch('/api/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ destination, days: `${days} 天`, style: styleAndInspiration, messages: updatedMessages }),
+        body: JSON.stringify({ destination, days: `${days} 天`, startDate, endDate, style: styleAndInspiration, messages: updatedMessages }),
         signal: controller.signal,
       });
       const data = await res.json();
@@ -284,7 +359,7 @@ export default function Home() {
 
   return (
     <>
-      {/* 🔝 滾動顯示的固定頂部導覽列 (加入滑順動畫與動態狀態) */}
+      {/* 🔝 滾動顯示固定頂部導覽列 */}
       <header 
         className={`fixed top-0 left-0 right-0 h-16 bg-white/90 backdrop-blur-xl border-b border-slate-200/80 z-40 px-4 sm:px-6 flex items-center shadow-[0_2px_10px_rgba(0,0,0,0.03)] transition-all duration-300 ease-in-out ${
           showTopBar ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'
@@ -304,7 +379,6 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* 📩 聯絡我 CTA */}
             <a
               href="https://www.instagram.com/allonetrip_perry/"
               target="_blank"
@@ -315,7 +389,6 @@ export default function Home() {
               <span>與我聯繫</span>
             </a>
 
-            {/* 🔗 分享行程 CTA */}
             <button
               onClick={handleOpenShareModal}
               disabled={!destination}
@@ -330,15 +403,12 @@ export default function Home() {
         </div>
       </header>
 
-      {/* 將 pt-24 改回 py-12，讓初始畫面距離完美置中 */}
       <main className="min-h-screen bg-slate-50 py-12 pb-40 px-4 sm:px-6 lg:px-8 relative">
         
         {/* 🚀 Gemini 風格分享彈窗 (Modal) */}
         {isShareModalOpen && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity duration-300">
             <div className="bg-[#1e1f20] w-full max-w-[480px] rounded-2xl shadow-2xl overflow-hidden border border-[#333537]">
-              
-              {/* Modal Header */}
               <div className="flex items-center justify-between px-6 py-5">
                 <h3 className="text-[#e3e3e3] text-lg font-medium tracking-wide">可分享的公開連結</h3>
                 <button 
@@ -351,7 +421,6 @@ export default function Home() {
                 </button>
               </div>
 
-              {/* Modal Body */}
               <div className="px-6 pb-6 space-y-5">
                 <div className="bg-[#2a2b2f] rounded-xl flex items-center p-1.5 border border-[#444746]">
                   {isCreatingLink ? (
@@ -395,7 +464,6 @@ export default function Home() {
 
                 {!isCreatingLink && (
                   <div className="pt-2 flex items-center justify-center gap-8 border-t border-[#333537] mt-4 pt-6 pb-2">
-                    {/* LINE */}
                     <a href={`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(shareUrl)}`} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center gap-2 group">
                       <div className="w-12 h-12 bg-[#06C755] rounded-full flex items-center justify-center hover:opacity-90 transition-opacity">
                         <svg className="w-7 h-7 text-white" viewBox="0 0 24 24" fill="currentColor">
@@ -405,7 +473,6 @@ export default function Home() {
                       <span className="text-xs text-[#a8aab0] group-hover:text-white transition-colors">LINE</span>
                     </a>
 
-                    {/* Facebook */}
                     <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center gap-2 group">
                       <div className="w-12 h-12 bg-[#1877F2] rounded-full flex items-center justify-center hover:opacity-90 transition-opacity">
                         <svg className="w-7 h-7 text-white" viewBox="0 0 24 24" fill="currentColor">
@@ -415,7 +482,6 @@ export default function Home() {
                       <span className="text-xs text-[#a8aab0] group-hover:text-white transition-colors">Facebook</span>
                     </a>
 
-                    {/* X (Twitter) */}
                     <a href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(`🧳 查看我的【${destination}】獨旅行程！`)}`} target="_blank" rel="noopener noreferrer" className="flex flex-col items-center gap-2 group">
                       <div className="w-12 h-12 bg-black rounded-full flex items-center justify-center border border-[#333537] hover:bg-[#1a1a1a] transition-colors">
                         <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
@@ -469,21 +535,50 @@ export default function Home() {
                 {errors.destination && <p className="mt-1.5 text-xs text-red-500 font-medium">⚠️ {errors.destination}</p>}
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">預計天數 (天)</label>
-                <input 
-                  type="text" 
-                  inputMode="numeric"
-                  value={days} 
-                  onChange={(e) => {
-                    const numStr = e.target.value.replace(/[^0-9]/g, '');
-                    if (numStr === '' || Number(numStr) <= 365) setDays(numStr);
-                    if (errors.days) setErrors((prev) => ({ ...prev, days: undefined }));
-                  }} 
-                  className={`w-full px-4 py-2.5 bg-white border rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all ${errors.days ? 'border-red-500 focus:ring-red-500 bg-red-50/30' : 'border-slate-300 focus:ring-black'}`} 
-                  placeholder="請輸入數字，限定最多 365 天" 
-                />
-                {errors.days && <p className="mt-1.5 text-xs text-red-500 font-medium">⚠️ {errors.days}</p>}
+              {/* 🗓️ 旅遊日期與天數（雙軌連動設計） */}
+              <div className="space-y-3 p-4 bg-slate-50/70 border border-slate-200/80 rounded-xl">
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-semibold text-slate-700">旅遊日期區間 (選填) 📅</label>
+                  <span className="text-xs text-slate-400">選擇日期可讓 AI 對照公休日</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">出發日期</label>
+                    <input 
+                      type="date" 
+                      value={startDate} 
+                      onChange={(e) => handleStartDateChange(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-black"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">回程日期</label>
+                    <input 
+                      type="date" 
+                      value={endDate} 
+                      min={startDate || undefined}
+                      onChange={(e) => handleEndDateChange(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-black"
+                    />
+                  </div>
+                </div>
+
+                {errors.dateRange && <p className="text-xs text-red-500 font-medium">⚠️ {errors.dateRange}</p>}
+
+                {/* 預計天數 */}
+                <div className="pt-1">
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">預計天數 (天)</label>
+                  <input 
+                    type="text" 
+                    inputMode="numeric"
+                    value={days} 
+                    onChange={(e) => handleDaysChange(e.target.value)}
+                    className={`w-full px-4 py-2.5 bg-white border rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all ${errors.days ? 'border-red-500 focus:ring-red-500 bg-red-50/30' : 'border-slate-300 focus:ring-black'}`} 
+                    placeholder="可手動填寫天數，或由上方日期自動計算" 
+                  />
+                  {errors.days && <p className="mt-1.5 text-xs text-red-500 font-medium">⚠️ {errors.days}</p>}
+                </div>
               </div>
 
               <div>
@@ -659,7 +754,7 @@ export default function Home() {
                                   </svg>
                                 ) : (
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                   </svg>
                                 )}
                               </button>
