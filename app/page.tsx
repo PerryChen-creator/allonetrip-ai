@@ -13,14 +13,14 @@ interface Message {
 export default function Home() {
   const [destination, setDestination] = useState('');
   
-  // 🗓️ 日期與天數狀態
+  // 🗓️ 日期區間必填狀態
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [days, setDays] = useState('');
 
   const [styleAndInspiration, setStyleAndInspiration] = useState('');
   
-  const [errors, setErrors] = useState<{ destination?: string; days?: string; dateRange?: string }>({});
+  // 自訂紅字錯誤狀態
+  const [errors, setErrors] = useState<{ destination?: string; startDate?: string; endDate?: string; dateRange?: string }>({});
   const [chatImage, setChatImage] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
@@ -51,59 +51,25 @@ export default function Home() {
   const loadingDotsRef = useRef<HTMLDivElement | null>(null);
   const latestAiMsgRef = useRef<HTMLDivElement | null>(null);
 
-  // 🔄 日期與天數連動計算邏輯
+  // 🧮 動態計算總天數與晚數 (Trip.com 風格)
+  const calculatedDays = (startDate && endDate && new Date(endDate) >= new Date(startDate))
+    ? Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1
+    : 0;
+
   const handleStartDateChange = (val: string) => {
     setStartDate(val);
-    if (errors.dateRange) setErrors(prev => ({ ...prev, dateRange: undefined }));
-
-    if (val && endDate) {
-      const start = new Date(val);
-      const end = new Date(endDate);
-      if (end >= start) {
-        const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-        setDays(diffDays.toString());
-        if (errors.days) setErrors(prev => ({ ...prev, days: undefined }));
-      } else {
-        setEndDate('');
-      }
-    } else if (val && days && !isNaN(Number(days)) && Number(days) > 0) {
-      const start = new Date(val);
-      const end = new Date(start);
-      end.setDate(start.getDate() + Number(days) - 1);
-      setEndDate(end.toISOString().split('T')[0]);
+    if (errors.startDate || errors.dateRange) {
+      setErrors(prev => ({ ...prev, startDate: undefined, dateRange: undefined }));
+    }
+    if (val && endDate && new Date(endDate) < new Date(val)) {
+      setEndDate('');
     }
   };
 
   const handleEndDateChange = (val: string) => {
     setEndDate(val);
-    if (errors.dateRange) setErrors(prev => ({ ...prev, dateRange: undefined }));
-
-    if (startDate && val) {
-      const start = new Date(startDate);
-      const end = new Date(val);
-      if (end >= start) {
-        const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-        setDays(diffDays.toString());
-        if (errors.days) setErrors(prev => ({ ...prev, days: undefined }));
-      } else {
-        setErrors(prev => ({ ...prev, dateRange: '回程日期不能早於出發日期' }));
-      }
-    }
-  };
-
-  const handleDaysChange = (val: string) => {
-    const numStr = val.replace(/[^0-9]/g, '');
-    if (numStr === '' || Number(numStr) <= 365) {
-      setDays(numStr);
-      if (errors.days) setErrors(prev => ({ ...prev, days: undefined }));
-
-      // 若已有出發日期，手動改天數時自動推算回程日期
-      if (startDate && numStr && Number(numStr) > 0) {
-        const start = new Date(startDate);
-        const end = new Date(start);
-        end.setDate(start.getDate() + Number(numStr) - 1);
-        setEndDate(end.toISOString().split('T')[0]);
-      }
+    if (errors.endDate || errors.dateRange) {
+      setErrors(prev => ({ ...prev, endDate: undefined, dateRange: undefined }));
     }
   };
 
@@ -121,17 +87,15 @@ export default function Home() {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const urlDest = params.get('dest');
-      const urlDays = params.get('days');
       const urlStart = params.get('start');
       const urlEnd = params.get('end');
       const urlStyle = params.get('style');
       const autoRun = params.get('auto');
 
-      if (urlDest && urlDays) {
+      if (urlDest && urlStart && urlEnd) {
         setDestination(urlDest);
-        setDays(urlDays);
-        if (urlStart) setStartDate(urlStart);
-        if (urlEnd) setEndDate(urlEnd);
+        setStartDate(urlStart);
+        setEndDate(urlEnd);
         if (urlStyle) setStyleAndInspiration(urlStyle);
 
         if (autoRun === '1') {
@@ -146,7 +110,7 @@ export default function Home() {
   const handleOpenShareModal = () => {
     if (!destination) return;
     
-    const url = `${window.location.origin}?dest=${encodeURIComponent(destination)}&days=${encodeURIComponent(days)}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}&style=${encodeURIComponent(styleAndInspiration)}&auto=1`;
+    const url = `${window.location.origin}?dest=${encodeURIComponent(destination)}&start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}&style=${encodeURIComponent(styleAndInspiration)}&auto=1`;
     setShareUrl(url);
     
     setIsShareModalOpen(true);
@@ -226,12 +190,17 @@ export default function Home() {
   const handleGenerate = async (e: React.FormEvent | MouseEvent) => {
     if (e && 'preventDefault' in e) e.preventDefault();
 
-    const newErrors: { destination?: string; days?: string; dateRange?: string } = {};
-    if (!destination.trim()) newErrors.destination = '請填寫想去的目的地';
-    if (!days.trim() || isNaN(Number(days)) || Number(days) < 1 || Number(days) > 365) {
-      newErrors.days = '請輸入 1 至 365 之間的有效數字天數或選擇日期區間';
+    const newErrors: { destination?: string; startDate?: string; endDate?: string; dateRange?: string } = {};
+    
+    if (!destination.trim()) {
+      newErrors.destination = '請填寫想去的目的地';
     }
-    if (startDate && endDate && new Date(endDate) < new Date(startDate)) {
+    if (!startDate) {
+      newErrors.startDate = '請選擇出發日期';
+    }
+    if (!endDate) {
+      newErrors.endDate = '請選擇回程日期';
+    } else if (startDate && new Date(endDate) < new Date(startDate)) {
       newErrors.dateRange = '回程日期不能早於出發日期';
     }
 
@@ -254,9 +223,9 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           destination, 
-          days: `${days} 天`, 
           startDate,
           endDate,
+          days: `${calculatedDays} 天`, 
           style: styleAndInspiration 
         }),
         signal: controller.signal,
@@ -297,7 +266,7 @@ export default function Home() {
       const res = await fetch('/api/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ destination, days: `${days} 天`, startDate, endDate, style: styleAndInspiration, messages: updatedMessages }),
+        body: JSON.stringify({ destination, startDate, endDate, days: `${calculatedDays} 天`, style: styleAndInspiration, messages: updatedMessages }),
         signal: controller.signal,
       });
       const data = await res.json();
@@ -332,7 +301,7 @@ export default function Home() {
       const res = await fetch('/api/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ destination, days: `${days} 天`, startDate, endDate, style: styleAndInspiration, messages: updatedMessages }),
+        body: JSON.stringify({ destination, startDate, endDate, days: `${calculatedDays} 天`, style: styleAndInspiration, messages: updatedMessages }),
         signal: controller.signal,
       });
       const data = await res.json();
@@ -530,27 +499,34 @@ export default function Home() {
                     if (errors.destination) setErrors((prev) => ({ ...prev, destination: undefined }));
                   }} 
                   className={`w-full px-4 py-2.5 bg-white border rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all ${errors.destination ? 'border-red-500 focus:ring-red-500 bg-red-50/30' : 'border-slate-300 focus:ring-black'}`} 
-                  placeholder="例如：日本東京、台灣環島、紐約" 
+                  placeholder="例如：日本環島、北歐極光之旅、西班牙朝聖之路" 
                 />
                 {errors.destination && <p className="mt-1.5 text-xs text-red-500 font-medium">⚠️ {errors.destination}</p>}
               </div>
 
-              {/* 🗓️ 旅遊日期與天數（雙軌連動設計） */}
-              <div className="space-y-3 p-4 bg-slate-50/70 border border-slate-200/80 rounded-xl">
+              {/* 🗓️ 旅遊日期區間 (Trip.com 風格，必填且手機版彈性響應) */}
+              <div className="space-y-2 p-4 bg-slate-50/80 border border-slate-200/90 rounded-xl">
                 <div className="flex items-center justify-between">
-                  <label className="block text-sm font-semibold text-slate-700">旅遊日期區間 (選填) 📅</label>
-                  <span className="text-xs text-slate-400">選擇日期可讓 AI 對照公休日</span>
+                  <label className="block text-sm font-semibold text-slate-700">旅遊日期區間 📅</label>
+                  {calculatedDays > 0 && (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200/80 shadow-xs">
+                      共 {calculatedDays} 天 {calculatedDays > 1 ? `${calculatedDays - 1} 晚` : ''}
+                    </span>
+                  )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   <div>
                     <label className="block text-xs font-medium text-slate-500 mb-1">出發日期</label>
                     <input 
                       type="date" 
                       value={startDate} 
                       onChange={(e) => handleStartDateChange(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-black"
+                      className={`w-full px-3.5 py-2.5 bg-white border rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 transition-all ${
+                        errors.startDate || errors.dateRange ? 'border-red-500 focus:ring-red-500 bg-red-50/30' : 'border-slate-300 focus:ring-black'
+                      }`}
                     />
+                    {errors.startDate && <p className="mt-1 text-xs text-red-500 font-medium">⚠️ {errors.startDate}</p>}
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-slate-500 mb-1">回程日期</label>
@@ -559,26 +535,15 @@ export default function Home() {
                       value={endDate} 
                       min={startDate || undefined}
                       onChange={(e) => handleEndDateChange(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-black"
+                      className={`w-full px-3.5 py-2.5 bg-white border rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 transition-all ${
+                        errors.endDate || errors.dateRange ? 'border-red-500 focus:ring-red-500 bg-red-50/30' : 'border-slate-300 focus:ring-black'
+                      }`}
                     />
+                    {errors.endDate && <p className="mt-1 text-xs text-red-500 font-medium">⚠️ {errors.endDate}</p>}
                   </div>
                 </div>
 
-                {errors.dateRange && <p className="text-xs text-red-500 font-medium">⚠️ {errors.dateRange}</p>}
-
-                {/* 預計天數 */}
-                <div className="pt-1">
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">預計天數 (天)</label>
-                  <input 
-                    type="text" 
-                    inputMode="numeric"
-                    value={days} 
-                    onChange={(e) => handleDaysChange(e.target.value)}
-                    className={`w-full px-4 py-2.5 bg-white border rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all ${errors.days ? 'border-red-500 focus:ring-red-500 bg-red-50/30' : 'border-slate-300 focus:ring-black'}`} 
-                    placeholder="可手動填寫天數，或由上方日期自動計算" 
-                  />
-                  {errors.days && <p className="mt-1.5 text-xs text-red-500 font-medium">⚠️ {errors.days}</p>}
-                </div>
+                {errors.dateRange && <p className="text-xs text-red-500 font-medium pt-1">⚠️ {errors.dateRange}</p>}
               </div>
 
               <div>
@@ -754,7 +719,7 @@ export default function Home() {
                                   </svg>
                                 ) : (
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                   </svg>
                                 )}
                               </button>

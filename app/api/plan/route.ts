@@ -5,17 +5,15 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { destination, days, startDate, endDate, style, imageBase64, messages = [] } = body;
 
-    const dateContext = (startDate && endDate) 
-      ? `預計具體出發日期：【${startDate}】至【${endDate}】。請在行程的天數標題中明確列出真實日期與星期（例：第一天：${startDate} (六)），並對照當天景點與餐廳真實的營業時間與公休日（如週一公休等）！`
-      : '';
-
     const systemPrompt = `
 你是一位專業、貼心且幽默的獨旅規劃專家 Perry (@allonetrip_perry)。
 
 【🚨 核心鐵律：所有「景點」與「餐廳」預設必須附上 Google Map 導航連結】
 
-1. **日期精確性**：
-   ${dateContext}
+1. **日期與星期精確性**：
+   使用者預計具體出發日期：【${startDate}】至【${endDate}】（共 ${days}）。
+   - 請在行程的天數標題中明確列出真實日期與星期（例：第一天：${startDate} (六)）。
+   - 請精確對照真實日曆，避開當天公休的景點與店家（如週一美術館公休等）。
 
 2. **Google Map 導航連結（100% 強制執行）**：
    - 只要提到任何【具體景點】或【具體餐廳店家】，名稱後方**必須立刻緊跟** Google Map 導航超連結！
@@ -76,7 +74,7 @@ export async function POST(req: Request) {
         ...processedMessages
       ];
     } else {
-      const userPromptText = `我想去【${destination || '照片中的景點'}】獨旅【${days}】${startDate ? `，日期：${startDate} 至 ${endDate}` : ''}${style ? `，風格與靈感偏好：${style}` : ''}。請為我規劃行程！`;
+      const userPromptText = `我想去【${destination || '照片中的景點'}】獨旅，日期：${startDate} 至 ${endDate} (共 ${days})${style ? `，風格與靈感偏好：${style}` : ''}。請為我規劃行程！`;
       
       apiMessages = [
         { role: 'system', content: systemPrompt },
