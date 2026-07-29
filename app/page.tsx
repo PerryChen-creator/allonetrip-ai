@@ -212,6 +212,52 @@ export default function Home() {
     setIsAnswering(false);
   };
 
+  // 🔄 智慧重試邏輯 (Smart Retry)
+  const handleRetry = async () => {
+    handleStopGeneration();
+
+    // 如果只有一條訊息（即首次主行程失敗）
+    if (messages.length <= 1) {
+      handleGenerate(new Event('submit') as any);
+      return;
+    }
+
+    // 如果是追問失敗，把最後一條 ❌ 錯誤訊息剔除，重新調用 API 追問
+    const cleanedMessages = messages.filter(m => !m.content.includes('❌'));
+    setMessages(cleanedMessages);
+    setIsAnswering(true);
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    try {
+      const res = await fetch('/api/plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          destination, 
+          startDate, 
+          endDate, 
+          days: `${calculatedDays} 天`, 
+          style: styleAndInspiration, 
+          messages: cleanedMessages 
+        }),
+        signal: controller.signal,
+      });
+      const data = await res.json();
+      setMessages([...cleanedMessages, { role: 'assistant', content: data.reply || data.itinerary || '無法取得回答' }]);
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        setMessages([...cleanedMessages, { role: 'assistant', content: '⏹️ 已暫停回應。' }]);
+      } else {
+        setMessages([...cleanedMessages, { role: 'assistant', content: '❌ 系統連線發生錯誤，請檢查網路後點擊下方按鈕重試！' }]);
+      }
+    } finally {
+      setIsAnswering(false);
+      abortControllerRef.current = null;
+    }
+  };
+
   const handleGenerate = async (e: React.FormEvent | MouseEvent) => {
     if (e && 'preventDefault' in e) e.preventDefault();
 
@@ -264,7 +310,7 @@ export default function Home() {
       if (err.name === 'AbortError') {
         setMessages([{ role: 'assistant', content: '⏹️ 已暫停 AI 生成。' }]);
       } else {
-        setMessages([{ role: 'assistant', content: '❌ 系統連線發生錯誤，請重試！' }]);
+        setMessages([{ role: 'assistant', content: '❌ 系統連線發生錯誤，請檢查網路後點擊下方按鈕重試！' }]);
       }
     } finally {
       setLoading(false);
@@ -303,7 +349,7 @@ export default function Home() {
       if (err.name === 'AbortError') {
         setMessages([...updatedMessages, { role: 'assistant', content: '⏹️ 已暫停回應。' }]);
       } else {
-        setMessages([...updatedMessages, { role: 'assistant', content: '❌ 追問失敗，請檢查網路連線。' }]);
+        setMessages([...updatedMessages, { role: 'assistant', content: '❌ 系統連線發生錯誤，請檢查網路後點擊下方按鈕重試！' }]);
       }
     } finally {
       setIsAnswering(false);
@@ -338,7 +384,7 @@ export default function Home() {
       if (err.name === 'AbortError') {
         setMessages([...updatedMessages, { role: 'assistant', content: '⏹️ 已暫停回應。' }]);
       } else {
-        setMessages([...updatedMessages, { role: 'assistant', content: '❌ 追問失敗，請重試。' }]);
+        setMessages([...updatedMessages, { role: 'assistant', content: '❌ 系統連線發生錯誤，請檢查網路後點擊下方按鈕重試！' }]);
       }
     } finally {
       setIsAnswering(false);
@@ -615,6 +661,7 @@ export default function Home() {
               <div className="space-y-6">
                 {messages.map((msg, idx) => {
                   const isLastAiMsg = (idx === messages.length - 1) && (msg.role === 'assistant');
+                  const isErrorMsg = msg.role === 'assistant' && msg.content.includes('❌');
                   
                   return (
                     <div 
@@ -694,7 +741,11 @@ export default function Home() {
                           )}
                         </div>
                       ) : (
-                        <div className="bg-slate-50 text-slate-800 p-5 rounded-2xl rounded-tl-none text-sm border border-slate-100 leading-relaxed shadow-sm space-y-3 overflow-hidden">
+                        <div className={`p-5 rounded-2xl rounded-tl-none text-sm leading-relaxed shadow-sm space-y-3 overflow-hidden ${
+                          isErrorMsg 
+                            ? 'bg-red-50/70 text-red-900 border border-red-200' 
+                            : 'bg-slate-50 text-slate-800 border border-slate-100'
+                        }`}>
                           <ReactMarkdown
                             remarkPlugins={[remarkGfm]}
                             components={{
@@ -735,28 +786,45 @@ export default function Home() {
                             {msg.content}
                           </ReactMarkdown>
 
-                          <div className="pt-2 border-t border-slate-200/60 flex justify-end">
-                            <div className="relative group/tooltip">
+                          {/* 🎯 如果是錯誤訊息，直接在訊息下方提供鮮明的【🔄 點此重新嘗試】按鈕 */}
+                          {isErrorMsg && (
+                            <div className="pt-2">
                               <button
-                                onClick={() => handleCopy(msg.content, `ai-${idx}`)}
-                                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-md transition-colors"
-                                aria-label="複製回應"
+                                onClick={handleRetry}
+                                className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-xs font-semibold shadow-sm transition-all transform hover:-translate-y-0.5 active:translate-y-0"
                               >
-                                {copiedId === `ai-${idx}` ? (
-                                  <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                                  </svg>
-                                ) : (
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2 2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                  </svg>
-                                )}
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                <span>點此重新嘗試</span>
                               </button>
-                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover/tooltip:block bg-slate-800 text-white text-[11px] py-1 px-2 rounded shadow-md whitespace-nowrap pointer-events-none z-10">
-                                {copiedId === `ai-${idx}` ? '已複製' : '複製回應'}
+                            </div>
+                          )}
+
+                          {!isErrorMsg && (
+                            <div className="pt-2 border-t border-slate-200/60 flex justify-end">
+                              <div className="relative group/tooltip">
+                                <button
+                                  onClick={() => handleCopy(msg.content, `ai-${idx}`)}
+                                  className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-md transition-colors"
+                                  aria-label="複製回應"
+                                >
+                                  {copiedId === `ai-${idx}` ? (
+                                    <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  ) : (
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2 2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                    </svg>
+                                  )}
+                                </button>
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover/tooltip:block bg-slate-800 text-white text-[11px] py-1 px-2 rounded shadow-md whitespace-nowrap pointer-events-none z-10">
+                                  {copiedId === `ai-${idx}` ? '已複製' : '複製回應'}
+                                </div>
                               </div>
                             </div>
-                          </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -780,7 +848,7 @@ export default function Home() {
 
         </div>
 
-        {/* 🎯 固定底部的對話追問欄位 (加上 onFocus 自動平滑滾動對齊鍵盤) */}
+        {/* 🎯 固定底部的對話追問欄位 */}
         {(messages.length > 0 || loading || isAnswering) && (
           <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-slate-200 p-3 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-50">
             <div className="max-w-2xl mx-auto space-y-2">
@@ -807,7 +875,7 @@ export default function Home() {
                   title="上傳圖片發問"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0118.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                 </button>
@@ -826,7 +894,6 @@ export default function Home() {
                   onChange={handleTextareaInput}
                   onKeyDown={handleKeyDown}
                   onFocus={(e) => {
-                    // 📱 點擊追問框時，延遲 300ms 待手機鍵盤完全彈起後，自動滑動對齊
                     setTimeout(() => {
                       e.target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                     }, 300);
