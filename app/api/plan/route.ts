@@ -95,6 +95,7 @@ export async function POST(req: Request) {
         model: "openai/gpt-4o-mini",
         messages: apiMessages,
         temperature: 0.7,
+        max_tokens: 3000, // 👈 關鍵修復：限制 OpenRouter 預扣門檻為 3000 tokens，解決權限/額度不足報錯
       }),
     });
 
