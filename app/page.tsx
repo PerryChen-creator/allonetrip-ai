@@ -13,7 +13,23 @@ interface Message {
 export default function Home() {
   const [destination, setDestination] = useState('');
   
-  // 🗓️ 日期區間必填狀態
+  // 📱 響應式 Placeholder (手機版自動隱藏過長範例)
+  const [destinationPlaceholder, setDestinationPlaceholder] = useState('例如：日本環島、北歐極光之旅');
+
+  useEffect(() => {
+    const updatePlaceholder = () => {
+      if (window.innerWidth >= 640) {
+        setDestinationPlaceholder('例如：日本環島、北歐極光之旅、西班牙朝聖之路');
+      } else {
+        setDestinationPlaceholder('例如：日本環島、北歐極光之旅');
+      }
+    };
+    updatePlaceholder();
+    window.addEventListener('resize', updatePlaceholder);
+    return () => window.removeEventListener('resize', updatePlaceholder);
+  }, []);
+
+  // 🗓️ 日期區間狀態
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
@@ -51,7 +67,7 @@ export default function Home() {
   const loadingDotsRef = useRef<HTMLDivElement | null>(null);
   const latestAiMsgRef = useRef<HTMLDivElement | null>(null);
 
-  // 🧮 動態計算總天數與晚數 (Trip.com 風格)
+  // 🧮 動態計算總天數
   const calculatedDays = (startDate && endDate && new Date(endDate) >= new Date(startDate))
     ? Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)) + 1
     : 0;
@@ -499,12 +515,12 @@ export default function Home() {
                     if (errors.destination) setErrors((prev) => ({ ...prev, destination: undefined }));
                   }} 
                   className={`w-full px-4 py-2.5 bg-white border rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 transition-all ${errors.destination ? 'border-red-500 focus:ring-red-500 bg-red-50/30' : 'border-slate-300 focus:ring-black'}`} 
-                  placeholder="例如：日本環島、北歐極光之旅、西班牙朝聖之路" 
+                  placeholder={destinationPlaceholder} 
                 />
                 {errors.destination && <p className="mt-1.5 text-xs text-red-500 font-medium">⚠️ {errors.destination}</p>}
               </div>
 
-              {/* 🗓️ 旅遊日期區間 (Trip.com 風格，必填且手機版彈性響應) */}
+              {/* 🗓️ 旅遊日期區間 (Trip.com 風格) */}
               <div className="space-y-2 p-4 bg-slate-50/80 border border-slate-200/90 rounded-xl">
                 <div className="flex items-center justify-between">
                   <label className="block text-sm font-semibold text-slate-700">旅遊日期區間 📅</label>
