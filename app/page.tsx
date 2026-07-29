@@ -16,7 +16,7 @@ export default function Home() {
   // 📱 響應式 Placeholder
   const [destinationPlaceholder, setDestinationPlaceholder] = useState('例如：日本環島、北歐極光之旅');
 
-  // 📅 今日日期字串 (YYYY-MM-DD)，用於設定日曆最小可選日期 (min)
+  // 📅 今日日期字串
   const [todayStr, setTodayStr] = useState('');
 
   useEffect(() => {
@@ -532,7 +532,7 @@ export default function Home() {
                 {errors.destination && <p className="mt-1.5 text-xs text-red-500 font-medium">⚠️ {errors.destination}</p>}
               </div>
 
-              {/* 🗓️ 旅遊日期區間 (設有 min 不能選舊日期) */}
+              {/* 🗓️ 旅遊日期區間 */}
               <div className="space-y-2 p-4 bg-slate-50/80 border border-slate-200/90 rounded-xl">
                 <div className="flex items-center justify-between">
                   <label className="block text-sm font-semibold text-slate-700">旅遊日期區間 📅</label>
@@ -780,9 +780,9 @@ export default function Home() {
 
         </div>
 
-        {/* 固定底部的對話追問欄位 */}
+        {/* 🎯 固定底部的對話追問欄位 (加上 onFocus 自動平滑滾動對齊鍵盤) */}
         {(messages.length > 0 || loading || isAnswering) && (
-          <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-slate-200 p-3 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-50">
+          <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-slate-200 p-3 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-50">
             <div className="max-w-2xl mx-auto space-y-2">
               
               {chatImage && (
@@ -825,6 +825,12 @@ export default function Home() {
                   value={followUpInput}
                   onChange={handleTextareaInput}
                   onKeyDown={handleKeyDown}
+                  onFocus={(e) => {
+                    // 📱 點擊追問框時，延遲 300ms 待手機鍵盤完全彈起後，自動滑動對齊
+                    setTimeout(() => {
+                      e.target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }, 300);
+                  }}
                   placeholder="問問 Perry..."
                   className="flex-1 px-3.5 py-[9px] text-sm bg-slate-50 border border-slate-300 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-black focus:bg-white transition-all resize-none overflow-y-auto leading-[20px] shadow-inner"
                   style={{ height: '40px', minHeight: '40px', maxHeight: '120px' }}

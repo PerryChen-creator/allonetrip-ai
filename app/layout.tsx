@@ -1,10 +1,17 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'] })
 
-// 🚀 網站全域與社群分享 (Open Graph) SEO 設定
+// 📱 讓行動版鍵盤彈起時自動重算 Viewport 高度，防止輸入框被遮擋
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  interactiveWidget: 'resizes-content',
+}
+
 export const metadata: Metadata = {
   title: 'Perry 獨旅 AI 幫手 🧳',
   description: '@allonetrip_perry 專屬行程規劃，一鍵為你打造專屬的獨旅行程！',
@@ -15,7 +22,6 @@ export const metadata: Metadata = {
     siteName: 'Perry 獨旅 AI 幫手',
     images: [
       {
-        // 幫你配好一張超有質感的獨旅/探索風高畫質縮圖 (自動裁切為 1200x630 最佳比例)
         url: 'https://images.unsplash.com/photo-1488085061387-422e29b40080?q=80&w=1200&h=630&auto=format&fit=crop', 
         width: 1200,
         height: 630,
