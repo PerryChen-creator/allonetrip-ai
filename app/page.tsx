@@ -26,13 +26,15 @@ export default function Home() {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editInput, setEditInput] = useState('');
 
-  // 複製狀態
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // 🔗 分享彈窗狀態 (Gemini Style)
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isCreatingLink, setIsCreatingLink] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
+
+  // 🚀 頂部導覽列滾動狀態
+  const [showTopBar, setShowTopBar] = useState(false);
 
   // Refs
   const chatTopRef = useRef<HTMLDivElement | null>(null);
@@ -43,6 +45,15 @@ export default function Home() {
 
   const loadingDotsRef = useRef<HTMLDivElement | null>(null);
   const latestAiMsgRef = useRef<HTMLDivElement | null>(null);
+
+  // 監聽頁面滾動，超過 100px 時顯示 Top Bar
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowTopBar(window.scrollY > 100);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Auto-Pilot 載入邏輯
   useEffect(() => {
@@ -67,7 +78,6 @@ export default function Home() {
     }
   }, []);
 
-  // 打開分享彈窗並產生連結
   const handleOpenShareModal = () => {
     if (!destination) return;
     
@@ -274,8 +284,12 @@ export default function Home() {
 
   return (
     <>
-      {/* 🔝 固定頂部導覽列 Top Bar (桌機 + 手機全支援) */}
-      <header className="fixed top-0 left-0 right-0 h-16 bg-white/80 backdrop-blur-xl border-b border-slate-200/80 z-40 px-4 sm:px-6 flex items-center shadow-[0_2px_10px_rgba(0,0,0,0.03)]">
+      {/* 🔝 滾動顯示的固定頂部導覽列 (加入滑順動畫與動態狀態) */}
+      <header 
+        className={`fixed top-0 left-0 right-0 h-16 bg-white/90 backdrop-blur-xl border-b border-slate-200/80 z-40 px-4 sm:px-6 flex items-center shadow-[0_2px_10px_rgba(0,0,0,0.03)] transition-all duration-300 ease-in-out ${
+          showTopBar ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0 pointer-events-none'
+        }`}
+      >
         <div className="max-w-2xl mx-auto w-full flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-xl">🧳</span>
@@ -316,7 +330,8 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="min-h-screen bg-slate-50 pt-24 pb-40 px-4 sm:px-6 lg:px-8 relative">
+      {/* 將 pt-24 改回 py-12，讓初始畫面距離完美置中 */}
+      <main className="min-h-screen bg-slate-50 py-12 pb-40 px-4 sm:px-6 lg:px-8 relative">
         
         {/* 🚀 Gemini 風格分享彈窗 (Modal) */}
         {isShareModalOpen && (
