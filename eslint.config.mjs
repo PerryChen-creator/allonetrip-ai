@@ -10,19 +10,19 @@ const compat = new FlatCompat({
 });
 
 const eslintConfig = [
-  ...compat.extends("next/core-web-vitals"),
-  {
+  ...compat.config({
+    extends: ["next/core-web-vitals"],
     rules: {
-      // 🟢 允許使用原生 <img> 標籤（適合動態圖片與 Base64 預覽）
+      // 🟢 允許使用原生 <img> 標籤
       "@next/next/no-img-element": "off",
-      // 🟢 允許彈性的型別設定
+      // 🟢 允許彈性型別
       "@typescript-eslint/no-explicit-any": "off",
-      // 🟢 允許 JSX 中的特殊字元
+      // 🟢 允許 JSX 特殊字元
       "react/no-unescaped-entities": "off",
-      // 🟢 忽略未使用的變數警告
+      // 🟢 忽略未使用的變數
       "@typescript-eslint/no-unused-vars": "off",
     },
-  },
+  }),
 ];
 
 export default eslintConfig;
