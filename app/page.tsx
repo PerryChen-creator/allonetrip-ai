@@ -3,18 +3,27 @@
 import { useState, useEffect } from 'react';
 
 export default function Home() {
-  // 取得今天日期的 YYYY-MM-DD 格式
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // 1. 表單與對話狀態
+  // 1. 表單與對話狀態（日期預設都不帶入值）
   const [destination, setDestination] = useState('');
-  const [days, setDays] = useState('1');
-  const [startDate, setStartDate] = useState(todayStr);
-  const [endDate, setEndDate] = useState(todayStr);
+  const [days, setDays] = useState('0');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [style, setStyle] = useState('');
   const [loading, setLoading] = useState(false);
   const [chatHistory, setChatHistory] = useState<any[]>([]);
   const [inputMsg, setInputMsg] = useState('');
+
+  // 偵測裝置螢幕寬度，隨裝置動態切換 placeholder 文案長短
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 640);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // 2. 個人化旅行習慣 Modal 狀態
   const [isPrefOpen, setIsPrefOpen] = useState(false);
@@ -57,7 +66,7 @@ export default function Home() {
     localStorage.setItem('theme_mode', newMode ? 'dark' : 'light');
   };
 
-  // 自動計算天數
+  // 自動計算天數（兩者皆選擇時才計算）
   useEffect(() => {
     if (startDate && endDate) {
       const start = new Date(startDate);
@@ -66,7 +75,11 @@ export default function Home() {
       if (diffTime >= 0) {
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
         setDays(diffDays.toString());
+      } else {
+        setDays('0');
       }
+    } else {
+      setDays('0');
     }
   }, [startDate, endDate]);
 
@@ -82,9 +95,10 @@ export default function Home() {
 
     setLoading(true);
 
+    const dateInfo = (startDate && endDate) ? `，日期：${startDate} 至 ${endDate} (共 ${days} 天)` : '';
     const promptText = customText 
       ? customText 
-      : `我想去【${destination}】獨旅，日期：${startDate} 至 ${endDate} (共 ${days} 天)${style ? `，風格：${style}` : ''}。請為我規劃行程！`;
+      : `我想去【${destination}】獨旅${dateInfo}${style ? `，風格：${style}` : ''}。請為我規劃行程！`;
 
     const newHistory = [...chatHistory, { role: 'user', content: promptText }];
     setChatHistory(newHistory);
@@ -161,29 +175,45 @@ export default function Home() {
 
   return (
     <main className={`min-h-screen transition-colors duration-300 p-4 md:p-8 flex flex-col items-center ${isDarkMode ? 'bg-[#0D1117] text-white' : 'bg-gray-50 text-gray-900'}`}>
-      <header className={`w-full max-w-xl flex justify-between items-center mb-6 pt-2 border-b pb-4 transition-colors duration-300 ${isDarkMode ? 'border-neutral-800' : 'border-gray-200'}`}>
-        <div className="flex flex-col items-start">
-          <h1 className={`text-xl font-bold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            🧳 獨旅 AI 幫手
-          </h1>
-          <p className={`text-xs ${isDarkMode ? 'text-neutral-400' : 'text-gray-500'}`}>
-            <a 
-              href="https://www.instagram.com/allonetrip_perry/" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="hover:underline hover:text-blue-400 transition"
-            >
-              @allonetrip_perry
-            </a> 專屬行程規劃
-          </p>
+      {/* 🟢 Header Navigation：手機版兩層結構，擺脫擁擠問題 */}
+      <header className={`w-full max-w-xl flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6 pt-2 border-b pb-4 transition-colors duration-300 ${isDarkMode ? 'border-neutral-800' : 'border-gray-200'}`}>
+        <div className="flex justify-between items-center w-full sm:w-auto">
+          <div className="flex flex-col items-start">
+            <h1 className={`text-xl font-bold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              🧳 獨旅 AI 幫手
+            </h1>
+            <p className={`text-xs ${isDarkMode ? 'text-neutral-400' : 'text-gray-500'}`}>
+              <a 
+                href="https://www.instagram.com/allonetrip_perry/" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="hover:underline hover:text-blue-400 transition"
+              >
+                @allonetrip_perry
+              </a> 專屬行程規劃
+            </p>
+          </div>
+
+          {/* 手機版右上角主題切換鈕 */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className={`sm:hidden w-8 h-8 rounded-full border transition flex items-center justify-center shadow-sm active:scale-95 shrink-0 ${
+              isDarkMode ? 'bg-neutral-800/80 hover:bg-neutral-700/80 text-neutral-200 border-neutral-700/60' : 'bg-white hover:bg-gray-100 text-gray-700 border-gray-300'
+            }`}
+            title={isDarkMode ? '切換至亮色模式' : '切換至暗色模式'}
+          >
+            <span className="text-xs leading-none">{isDarkMode ? '☀️' : '🌙'}</span>
+          </button>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* 動作按鈕區塊 */}
+        <div className="flex items-center justify-end gap-2 w-full sm:w-auto pt-1 sm:pt-0">
           {chatHistory.length > 0 && (
             <button
               type="button"
               onClick={handleOpenShareModal}
-              className={`px-3 py-1.5 text-xs font-medium rounded-full transition flex items-center gap-1 shadow-sm active:scale-95 border ${
+              className={`h-8 px-3 text-xs font-medium rounded-full transition flex items-center justify-center gap-1 shadow-sm active:scale-95 border ${
                 isDarkMode ? 'bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border-blue-500/30' : 'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200'
               }`}
             >
@@ -191,26 +221,26 @@ export default function Home() {
             </button>
           )}
           
-          {/* 🟢 按鈕文字改為「設定我的旅行習慣」 */}
           <button
             type="button"
             onClick={() => setIsPrefOpen(true)}
-            className={`px-3.5 py-1.5 text-xs font-medium rounded-full border transition flex items-center gap-1.5 shadow-sm active:scale-95 ${
+            className={`h-8 px-3.5 text-xs font-medium rounded-full border transition flex items-center justify-center gap-1.5 shadow-sm active:scale-95 ${
               isDarkMode ? 'bg-neutral-800/80 hover:bg-neutral-700/80 text-neutral-200 border-neutral-700/60' : 'bg-white hover:bg-gray-100 text-gray-700 border-gray-300'
             }`}
           >
             📝 設定我的旅行習慣
           </button>
           
+          {/* 電腦版主題切換鈕 */}
           <button
             type="button"
             onClick={toggleTheme}
-            className={`p-1.5 rounded-full border transition flex items-center justify-center shadow-sm active:scale-95 ${
+            className={`hidden sm:flex w-8 h-8 rounded-full border transition items-center justify-center shadow-sm active:scale-95 shrink-0 ${
               isDarkMode ? 'bg-neutral-800/80 hover:bg-neutral-700/80 text-neutral-200 border-neutral-700/60' : 'bg-white hover:bg-gray-100 text-gray-700 border-gray-300'
             }`}
             title={isDarkMode ? '切換至亮色模式' : '切換至暗色模式'}
           >
-            {isDarkMode ? '☀️' : '🌙'}
+            <span className="text-xs leading-none">{isDarkMode ? '☀️' : '🌙'}</span>
           </button>
         </div>
       </header>
@@ -222,7 +252,7 @@ export default function Home() {
             <label className={`block text-xs font-medium mb-1.5 ${isDarkMode ? 'text-neutral-400' : 'text-gray-600'}`}>想去哪裡獨旅？</label>
             <input
               type="text"
-              placeholder="例如：四國"
+              placeholder={isMobile ? "例如：日本環島、極光之旅" : "例如：日本環島、北歐極光之旅、西班牙朝聖之路"}
               value={destination}
               onChange={(e) => setDestination(e.target.value)}
               className={`w-full rounded-xl px-4 py-2.5 text-sm transition focus:outline-none focus:border-blue-500 border ${
@@ -233,12 +263,14 @@ export default function Home() {
 
           <div className="space-y-1.5">
             <div className={`flex justify-between items-center text-xs font-medium ${isDarkMode ? 'text-neutral-400' : 'text-gray-600'}`}>
-              <span>設定日期區間 📅</span>
-              <span className={`px-2 py-0.5 rounded-md border font-mono ${
-                isDarkMode ? 'text-blue-400 bg-blue-950/60 border-blue-800/40' : 'text-blue-700 bg-blue-50 border-blue-200'
-              }`}>
-                共 {days} 天 ({days} 夜)
-              </span>
+              <span>旅遊日期區間 📅</span>
+              {startDate && endDate && parseInt(days) > 0 && (
+                <span className={`px-2 py-0.5 rounded-md border font-mono ${
+                  isDarkMode ? 'text-blue-400 bg-blue-950/60 border-blue-800/40' : 'text-blue-700 bg-blue-50 border-blue-200'
+                }`}>
+                  共 {days} 天 ({parseInt(days) > 1 ? parseInt(days) - 1 : 0} 夜)
+                </span>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -250,7 +282,7 @@ export default function Home() {
                   onChange={(e) => {
                     const newStart = e.target.value;
                     setStartDate(newStart);
-                    if (newStart > endDate) setEndDate(newStart);
+                    if (endDate && newStart > endDate) setEndDate(newStart);
                   }}
                   className={`w-full rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 border ${
                     isDarkMode ? 'bg-[#0D1117] border-neutral-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'
@@ -273,16 +305,19 @@ export default function Home() {
           </div>
 
           <div>
-            <label className={`block text-xs font-medium mb-1.5 ${isDarkMode ? 'text-neutral-400' : 'text-gray-600'}`}>獨旅風格偏好 (選填) 🪄</label>
+            <label className={`block text-xs font-medium mb-1.5 ${isDarkMode ? 'text-neutral-400' : 'text-gray-600'}`}>獨旅風格與靈感 (選填) 🔗</label>
             <input
               type="text"
-              placeholder="例如：慢步調、美食探索、歷史神社"
+              placeholder="例如：探索登山、夜生活，或貼上連結"
               value={style}
               onChange={(e) => setStyle(e.target.value)}
               className={`w-full rounded-xl px-4 py-2.5 text-sm transition focus:outline-none focus:border-blue-500 border ${
                 isDarkMode ? 'bg-[#0D1117] border-neutral-800 text-white placeholder-neutral-400' : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400'
               }`}
             />
+            <p className={`text-[11px] mt-1.5 ${isDarkMode ? 'text-neutral-400' : 'text-gray-500'}`}>
+              可輸入旅遊喜好，或貼上 IG / YouTube 公開景點圖片或影片連結
+            </p>
           </div>
 
           <button
@@ -295,16 +330,16 @@ export default function Home() {
                 : 'bg-gray-900 text-white hover:bg-gray-800 disabled:bg-gray-200 disabled:text-gray-400'
             }`}
           >
-            {loading ? 'Perry 正在為你規劃專屬行程...' : '一起生成專屬行程 ✨'}
+            {loading ? 'Perry 正在為你規劃專屬行程...' : '一鍵生成專屬行程 ✨'}
           </button>
         </div>
 
-        {/* 商業轉化 CTA */}
+        {/* 🟢 商業轉化 CTA：精準匹配截圖文案 */}
         <div className={`p-5 rounded-2xl border text-center space-y-3 transition-colors duration-300 ${
           isDarkMode ? 'bg-[#161B22] border-neutral-800' : 'bg-white border-gray-200 shadow-sm'
         }`}>
           <p className={`text-xs font-medium ${isDarkMode ? 'text-neutral-300' : 'text-gray-700'}`}>
-            想要取得更客製化的真人獨旅規劃諮詢嗎？
+            想要來場更客製化的旅程規劃嗎？
           </p>
           <a
             href="https://www.instagram.com/allonetrip_perry/"
@@ -312,7 +347,7 @@ export default function Home() {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-xs font-bold rounded-full shadow-md hover:shadow-lg transition active:scale-95"
           >
-            📩 私訊 Perry 專屬諮詢
+            📩 與我聯繫
           </a>
         </div>
 
