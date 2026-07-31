@@ -6,7 +6,7 @@ export async function POST(req: Request) {
 
     if (!apiKey) {
       return NextResponse.json(
-        { error: '伺服器未設定 OPENROUTER_API_KEY，請至 Vercel Dashboard -> Settings -> Environment Variables 設定環境變數' },
+        { error: '伺服器未設定 OPENROUTER_API_KEY，請至 Vercel Dashboard 設定環境變數' },
         { status: 500 }
       );
     }
@@ -46,8 +46,8 @@ ${prefText}
         'X-Title': 'AllOneTrip AI',
       },
       body: JSON.stringify({
-        // 🟢 改用 OpenRouter 上的免費模型，徹底避開 402 餘額不足的問題
-        model: 'google/gemini-2.0-flash-exp:free',
+        // 🟢 改用 OpenRouter 官方現行最穩定的免費高階模型 Llama 3.3 70B
+        model: 'meta-llama/llama-3.3-70b-instruct:free',
         messages: apiMessages,
       }),
     });
@@ -55,14 +55,14 @@ ${prefText}
     if (!res.ok) {
       const errText = await res.text();
       console.error('OpenRouter API Response Error:', errText);
-      return NextResponse.json({ error: `API Key 驗證失敗或餘額不足 (${res.status})` }, { status: res.status });
+      return NextResponse.json({ error: `API 回應錯誤 (${res.status})` }, { status: res.status });
     }
 
     const data = await res.json();
     const reply = data.choices?.[0]?.message?.content;
 
     if (!reply) {
-      return NextResponse.json({ error: 'AI 回應生成失敗，請檢查 API Key 或模型狀態' }, { status: 500 });
+      return NextResponse.json({ error: 'AI 回應生成失敗，請稍後再試' }, { status: 500 });
     }
 
     return NextResponse.json({ reply });
