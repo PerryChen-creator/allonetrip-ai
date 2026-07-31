@@ -46,7 +46,8 @@ ${prefText}
         'X-Title': 'AllOneTrip AI',
       },
       body: JSON.stringify({
-        model: 'openai/gpt-4o-mini',
+        // 🟢 改用 OpenRouter 上的免費模型，徹底避開 402 餘額不足的問題
+        model: 'google/gemini-2.0-flash-exp:free',
         messages: apiMessages,
       }),
     });
