@@ -46,12 +46,8 @@ ${prefText}
         'X-Title': 'AllOneTrip AI',
       },
       body: JSON.stringify({
-        // 🟢 換成 OpenRouter 目前確切有提供免費額度的 3 個優質 AI 模型
-        models: [
-          'deepseek/deepseek-r1:free',
-          'meta-llama/llama-3.1-8b-instruct:free',
-          'mistralai/mistral-7b-instruct:free'
-        ],
+        // 🟢 徹底放棄陣列，鎖定單一最穩定的永久免費模型 Llama 3.1 8B
+        model: 'meta-llama/llama-3.1-8b-instruct:free',
         messages: apiMessages,
       }),
     });
