@@ -40,29 +40,34 @@ ${prefText}
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        'Authorization': `Bearer ${apiKey.trim()}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': 'https://allonetrip-ai.vercel.app',
         'X-Title': 'AllOneTrip AI',
       },
       body: JSON.stringify({
-        // 🟢 改用 OpenRouter 官方現行最穩定的免費高階模型 Llama 3.3 70B
-        model: 'meta-llama/llama-3.3-70b-instruct:free',
+        // 🟢 使用 OpenRouter 官方 Fallback 備援機制，依序自動挑選線上的免費模型
+        models: [
+          'meta-llama/llama-3.1-8b-instruct:free',
+          'google/gemini-2.0-flash-lite-preview-001:free',
+          'deepseek/deepseek-r1:free',
+          'qwen/qwen-2.5-7b-instruct:free'
+        ],
         messages: apiMessages,
       }),
     });
 
     if (!res.ok) {
       const errText = await res.text();
-      console.error('OpenRouter API Response Error:', errText);
-      return NextResponse.json({ error: `API 回應錯誤 (${res.status})` }, { status: res.status });
+      console.error('OpenRouter Direct Error:', errText);
+      return NextResponse.json({ error: `API 請求失敗 (${res.status}): ${errText}` }, { status: res.status });
     }
 
     const data = await res.json();
     const reply = data.choices?.[0]?.message?.content;
 
     if (!reply) {
-      return NextResponse.json({ error: 'AI 回應生成失敗，請稍後再試' }, { status: 500 });
+      return NextResponse.json({ error: 'AI 未能生成內容，請稍後再試' }, { status: 500 });
     }
 
     return NextResponse.json({ reply });
