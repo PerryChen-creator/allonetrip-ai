@@ -37,8 +37,10 @@ ${preferencesText}
    - ❌ **嚴禁** 寫出「自由活動與深度探索」、「自行安排」等空洞廢話！
    - ⭕ **每個區間都必須寫出具體景點/美食**（若使用者有飲食偏好，請優先推薦符合的餐廳）。
 
-3. **景點與餐廳地圖超連結規範**：
-   - 格式：\`[景點全名](https://www.google.com/maps/search/?api=1&query=國家與地區+景點全名)\`
+3. **景點與餐廳地圖超連結規範（🚨 嚴格 Markdown 語法）**：
+   - ❌ **絕對禁止使用中文全形括號**（例如 `【景點名】(https://...)`），這會導致 Markdown 渲染失敗並秀出長網址！
+   - ⭕ **必須嚴格使用半形英文中括號與圓括號**：`[景點全名](https://www.google.com/maps/search/?api=1&query=國家與地區+景點全名)`
+   - 正確範例：`遊覽 [松山城](https://www.google.com/maps/search/?api=1&query=日本+愛媛+松山城) 與 [道後溫泉](https://www.google.com/maps/search/?api=1&query=日本+愛媛+道後溫泉)`
 
 4. **🎯 結尾專屬下一步引導（Smart Next-Step CTA）**：
    - 結尾固定附上：
