@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 
 export default function Home() {
-  // 取得今天日期的 YYYY-MM-DD 格式，用於日期選擇器的 min 限制
+  // 取得今天日期的 YYYY-MM-DD 格式
   const todayStr = new Date().toISOString().split('T')[0];
 
   // 1. 表單與對話狀態
@@ -16,7 +16,7 @@ export default function Home() {
   const [chatHistory, setChatHistory] = useState<any[]>([]);
   const [inputMsg, setInputMsg] = useState('');
 
-  // 2. 個人化旅行習慣 Modal 狀態 (新增 customNotes 欄位)
+  // 2. 個人化旅行習慣 Modal 狀態
   const [isPrefOpen, setIsPrefOpen] = useState(false);
   const [preferences, setPreferences] = useState({
     departureAirport: '',
@@ -166,15 +166,15 @@ export default function Home() {
           <h1 className={`text-xl font-bold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
             🧳 獨旅 AI 幫手
           </h1>
-          {/* 🟢 1. 恢復 IG 連結 */}
+          {/* 🟢 正確的 IG 連結 */}
           <p className={`text-xs ${isDarkMode ? 'text-neutral-400' : 'text-gray-500'}`}>
             <a 
-              href="https://www.instagram.com/allonetrip.perry" 
+              href="https://www.instagram.com/allonetrip_perry/" 
               target="_blank" 
               rel="noopener noreferrer" 
               className="hover:underline hover:text-blue-400 transition"
             >
-              @allonetrip.perry
+              @allonetrip_perry
             </a> 專屬行程規劃
           </p>
         </div>
@@ -240,7 +240,6 @@ export default function Home() {
                 共 {days} 天 ({days} 夜)
               </span>
             </div>
-            {/* 🟢 2. 設定 min={todayStr} 禁止選過去的日期 */}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={`block text-[10px] mb-1 ${isDarkMode ? 'text-neutral-400' : 'text-gray-500'}`}>出發日期</label>
@@ -300,18 +299,21 @@ export default function Home() {
           </button>
         </div>
 
-        {/* 提示橫幅 */}
-        <div className={`p-4 rounded-2xl border text-center space-y-2 transition-colors duration-300 ${isDarkMode ? 'bg-[#161B22] border-neutral-800' : 'bg-gray-100 border-gray-200'}`}>
-          <p className={`text-xs font-medium ${isDarkMode ? 'text-neutral-300' : 'text-gray-600'}`}>想要取得更客製化的獨旅規劃嗎？</p>
-          <button
-            type="button"
-            onClick={() => setIsPrefOpen(true)}
-            className={`px-4 py-1.5 text-xs font-medium rounded-full transition border ${
-              isDarkMode ? 'bg-neutral-800 hover:bg-neutral-700 text-white border-neutral-700' : 'bg-white hover:bg-gray-50 text-gray-800 border-gray-300 shadow-sm'
-            }`}
+        {/* 🟢 商業轉化 CTA：引導使用者私訊你的 IG 直播接單 */}
+        <div className={`p-5 rounded-2xl border text-center space-y-3 transition-colors duration-300 ${
+          isDarkMode ? 'bg-[#161B22] border-neutral-800' : 'bg-white border-gray-200 shadow-sm'
+        }`}>
+          <p className={`text-xs font-medium ${isDarkMode ? 'text-neutral-300' : 'text-gray-700'}`}>
+            想要取得更客製化的真人獨旅規劃諮詢嗎？
+          </p>
+          <a
+            href="https://www.instagram.com/allonetrip_perry/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-xs font-bold rounded-full shadow-md hover:shadow-lg transition active:scale-95"
           >
-            📝 設定我的旅行習慣
-          </button>
+            📩 私訊 Perry 專屬諮詢
+          </a>
         </div>
 
         {/* 對話呈現區域 */}
@@ -383,7 +385,7 @@ export default function Home() {
         )}
       </div>
 
-      {/* 🟢 3. 📝 旅行習慣 Modal (含新補充欄位 + 移除按鈕上方 divider) */}
+      {/* 📝 旅行習慣 Modal */}
       {isPrefOpen && (
         <div className={`fixed inset-0 backdrop-blur-sm flex items-center justify-center p-4 z-50 transition-colors ${isDarkMode ? 'bg-black/80' : 'bg-gray-900/40'}`}>
           <div className={`border rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4 text-left ${isDarkMode ? 'bg-[#161B22] border-neutral-800' : 'bg-white border-gray-200'}`}>
@@ -434,7 +436,6 @@ export default function Home() {
                 />
               </div>
 
-              {/* 💡 新增的補充備註欄位 */}
               <div>
                 <label className={`block font-medium mb-1 ${isDarkMode ? 'text-neutral-300' : 'text-gray-700'}`}>💡 補充說明 / 其他個人需求</label>
                 <textarea
@@ -449,7 +450,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* 🟢 移除 border-t 頂部分隔線 */}
             <div className="flex justify-end gap-2 pt-2">
               <button onClick={() => setIsPrefOpen(false)} className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition ${
                 isDarkMode ? 'bg-neutral-800 hover:bg-neutral-700 text-neutral-300' : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-300'
