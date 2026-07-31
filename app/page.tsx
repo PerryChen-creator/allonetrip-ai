@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 
 export default function Home() {
+  // 1. 表單與對話狀態
   const [destination, setDestination] = useState('');
   const [days, setDays] = useState('7');
   const [startDate, setStartDate] = useState('2026-08-01');
@@ -12,6 +13,7 @@ export default function Home() {
   const [chatHistory, setChatHistory] = useState<any[]>([]);
   const [inputMsg, setInputMsg] = useState('');
 
+  // 2. 個人化旅行習慣 Modal 狀態
   const [isPrefOpen, setIsPrefOpen] = useState(false);
   const [preferences, setPreferences] = useState({
     departureAirport: '',
@@ -19,6 +21,12 @@ export default function Home() {
     budget: '',
   });
 
+  // 3. 分享彈窗 Modal 狀態
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
+  const [isSharing, setIsSharing] = useState(false);
+
+  // 讀取 localStorage 個人習慣
   useEffect(() => {
     const saved = localStorage.getItem('user_preferences');
     if (saved) {
@@ -30,6 +38,7 @@ export default function Home() {
     }
   }, []);
 
+  // 計算天數
   useEffect(() => {
     if (startDate && endDate) {
       const start = new Date(startDate);
@@ -92,13 +101,15 @@ export default function Home() {
     }
   };
 
-  // 🟢 這是新增的：一鍵生成超短網址並複製到剪貼簿
-  const handleShare = async () => {
-    if (chatHistory.length === 0) return alert('請先生成行程後，才能分享喔！');
+  // 🟢 打開分享彈窗並自動向 Supabase 生成超短網址
+  const handleOpenShareModal = async () => {
+    if (chatHistory.length === 0) return alert('請先生成行程後再進行分享！');
     
-    // 找出 AI 講的最後一句話（就是最新的行程）
     const lastAssistantMsg = [...chatHistory].reverse().find(m => m.role === 'assistant');
-    if (!lastAssistantMsg) return alert('請先等待 Perry 生成行程後再分享喔！');
+    if (!lastAssistantMsg) return alert('請先等待 Perry 生成行程！');
+
+    setIsShareModalOpen(true);
+    setIsSharing(true);
 
     try {
       const res = await fetch('/api/share', {
@@ -112,17 +123,27 @@ export default function Home() {
 
       const data = await res.json();
       if (data.shareId) {
-        // 組合出乾淨的短網址
-        const shareUrl = `${window.location.origin}/share/${data.shareId}`;
-        // 自動複製到使用者的剪貼簿
-        await navigator.clipboard.writeText(shareUrl);
-        alert(`🎉 分享連結已成功複製！\n\n快把這個短網址傳給朋友吧：\n${shareUrl}`);
+        const generatedUrl = `${window.location.origin}/share/${data.shareId}`;
+        setShareUrl(generatedUrl);
       } else {
-        alert('分享失敗：' + (data.error || '未知錯誤'));
+        alert('生成短網址失敗：' + (data.error || '未知錯誤'));
       }
     } catch (err) {
-      alert('分享失敗，請檢查網路連線');
+      alert('網路連線失敗，請稍後再試');
+    } finally {
+      setIsSharing(false);
     }
+  };
+
+  // 社群分享捷徑
+  const shareToLine = () => {
+    window.open(`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(shareUrl)}`, '_blank');
+  };
+  const shareToFB = () => {
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, '_blank');
+  };
+  const shareToX = () => {
+    window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent('看看我的獨旅行程！')}`, '_blank');
   };
 
   return (
@@ -135,15 +156,16 @@ export default function Home() {
           <p className="text-xs text-neutral-400">@allonetrip.perry 專屬行程規劃</p>
         </div>
 
-        {/* 右上角兩顆按鈕：分享 ＆ 旅行習慣 */}
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleShare}
-            className="px-3.5 py-1.5 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border border-blue-500/30 text-xs font-medium rounded-full transition flex items-center gap-1.5 shadow-sm active:scale-95"
-          >
-            🔗 分享行程
-          </button>
+          {chatHistory.length > 0 && (
+            <button
+              type="button"
+              onClick={handleOpenShareModal}
+              className="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border border-blue-500/30 text-xs font-medium rounded-full transition flex items-center gap-1 shadow-sm active:scale-95"
+            >
+              🔗 分享行程
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setIsPrefOpen(true)}
@@ -155,6 +177,7 @@ export default function Home() {
       </header>
 
       <div className="w-full max-w-xl space-y-6">
+        {/* 輸入表單卡片 */}
         <div className="bg-[#161B22] p-5 rounded-2xl border border-neutral-800 shadow-xl space-y-4">
           <div>
             <label className="block text-xs font-medium text-neutral-400 mb-1.5">想去哪裡獨旅？</label>
@@ -228,11 +251,21 @@ export default function Home() {
           </button>
         </div>
 
+        {/* 對話呈現區域 */}
         {chatHistory.length > 0 && (
           <div className="bg-[#161B22] border border-neutral-800 rounded-2xl p-5 space-y-4 shadow-xl">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2 border-b border-neutral-800 pb-3">
-              📍 專屬獨旅行程對話
-            </h3>
+            <div className="flex justify-between items-center border-b border-neutral-800 pb-3">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                📍 專屬獨旅行程對話
+              </h3>
+              <button
+                type="button"
+                onClick={handleOpenShareModal}
+                className="text-xs text-blue-400 hover:underline font-medium"
+              >
+                🔗 分享公開連結
+              </button>
+            </div>
 
             <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
               {chatHistory.map((msg, idx) => (
@@ -277,6 +310,7 @@ export default function Home() {
         )}
       </div>
 
+      {/* 📝 旅行習慣 Modal */}
       {isPrefOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-[#161B22] border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4 text-left">
@@ -284,12 +318,7 @@ export default function Home() {
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 📝 我的旅行習慣
               </h3>
-              <button
-                onClick={() => setIsPrefOpen(false)}
-                className="text-neutral-400 hover:text-white p-1 rounded-lg transition"
-              >
-                ✕
-              </button>
+              <button onClick={() => setIsPrefOpen(false)} className="text-neutral-400 hover:text-white p-1 rounded-lg">✕</button>
             </div>
 
             <div className="space-y-3.5 text-xs">
@@ -328,17 +357,63 @@ export default function Home() {
             </div>
 
             <div className="flex justify-end gap-2 pt-3 border-t border-neutral-800">
-              <button
-                onClick={() => setIsPrefOpen(false)}
-                className="px-3.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-lg text-xs font-medium transition"
-              >
+              <button onClick={() => setIsPrefOpen(false)} className="px-3.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-lg text-xs">
                 取消
               </button>
-              <button
-                onClick={handleSavePreferences}
-                className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium transition shadow-md"
-              >
+              <button onClick={handleSavePreferences} className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium">
                 儲存習慣
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🔗 分享公開連結 Modal (精準對接你的 Screenshot 介面) */}
+      {isShareModalOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-[#161B22] border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4 text-left">
+            <div className="flex justify-between items-center border-b border-neutral-800 pb-3">
+              <h3 className="text-sm font-bold text-white">可分享的公開連結</h3>
+              <button onClick={() => setIsShareModalOpen(false)} className="text-neutral-400 hover:text-white p-1 rounded-lg">✕</button>
+            </div>
+
+            <div className="flex gap-2 items-center">
+              <input
+                type="text"
+                readOnly
+                value={isSharing ? '⚡ 正在生成超短網址中...' : shareUrl}
+                className="flex-1 bg-[#0D1117] border border-neutral-800 rounded-xl px-3 py-2.5 text-xs text-neutral-300 focus:outline-none"
+              />
+              <button
+                disabled={isSharing || !shareUrl}
+                onClick={() => {
+                  navigator.clipboard.writeText(shareUrl);
+                  alert('🎉 專屬超短網址已成功複製！');
+                }}
+                className="px-4 py-2.5 bg-white text-black text-xs font-bold rounded-xl hover:bg-neutral-200 transition disabled:opacity-50"
+              >
+                複製
+              </button>
+            </div>
+
+            <p className="text-[11px] text-neutral-400 flex items-center gap-1">
+              ⓘ 任何人都能透過此短連結快速檢視此獨旅行程。
+            </p>
+
+            <div className="flex justify-center gap-6 pt-3 border-t border-neutral-800">
+              <button onClick={shareToLine} className="flex flex-col items-center gap-1 group">
+                <span className="w-10 h-10 rounded-full bg-[#00B900] flex items-center justify-center text-white font-bold text-xs group-hover:scale-105 transition">LINE</span>
+                <span className="text-[10px] text-neutral-400">LINE</span>
+              </button>
+
+              <button onClick={shareToFB} className="flex flex-col items-center gap-1 group">
+                <span className="w-10 h-10 rounded-full bg-[#1877F2] flex items-center justify-center text-white font-bold text-xs group-hover:scale-105 transition">FB</span>
+                <span className="text-[10px] text-neutral-400">Facebook</span>
+              </button>
+
+              <button onClick={shareToX} className="flex flex-col items-center gap-1 group">
+                <span className="w-10 h-10 rounded-full bg-black border border-neutral-700 flex items-center justify-center text-white font-bold text-xs group-hover:scale-105 transition">X</span>
+                <span className="text-[10px] text-neutral-400">X</span>
               </button>
             </div>
           </div>
