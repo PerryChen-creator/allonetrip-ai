@@ -166,7 +166,6 @@ export default function Home() {
           <h1 className={`text-xl font-bold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
             🧳 獨旅 AI 幫手
           </h1>
-          {/* 🟢 正確的 IG 連結 */}
           <p className={`text-xs ${isDarkMode ? 'text-neutral-400' : 'text-gray-500'}`}>
             <a 
               href="https://www.instagram.com/allonetrip_perry/" 
@@ -192,6 +191,7 @@ export default function Home() {
             </button>
           )}
           
+          {/* 🟢 按鈕文字改為「設定我的旅行習慣」 */}
           <button
             type="button"
             onClick={() => setIsPrefOpen(true)}
@@ -199,7 +199,7 @@ export default function Home() {
               isDarkMode ? 'bg-neutral-800/80 hover:bg-neutral-700/80 text-neutral-200 border-neutral-700/60' : 'bg-white hover:bg-gray-100 text-gray-700 border-gray-300'
             }`}
           >
-            📝 我的旅行習慣
+            📝 設定我的旅行習慣
           </button>
           
           <button
@@ -299,7 +299,7 @@ export default function Home() {
           </button>
         </div>
 
-        {/* 🟢 商業轉化 CTA：引導使用者私訊你的 IG 直播接單 */}
+        {/* 商業轉化 CTA */}
         <div className={`p-5 rounded-2xl border text-center space-y-3 transition-colors duration-300 ${
           isDarkMode ? 'bg-[#161B22] border-neutral-800' : 'bg-white border-gray-200 shadow-sm'
         }`}>
@@ -391,7 +391,7 @@ export default function Home() {
           <div className={`border rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4 text-left ${isDarkMode ? 'bg-[#161B22] border-neutral-800' : 'bg-white border-gray-200'}`}>
             <div className={`flex justify-between items-center border-b pb-3 ${isDarkMode ? 'border-neutral-800' : 'border-gray-200'}`}>
               <h3 className={`text-sm font-bold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                📝 我的旅行習慣
+                📝 設定我的旅行習慣
               </h3>
               <button onClick={() => setIsPrefOpen(false)} className={`p-1 rounded-lg transition ${isDarkMode ? 'text-neutral-400 hover:text-white' : 'text-gray-400 hover:text-gray-800'}`}>✕</button>
             </div>
