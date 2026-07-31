@@ -46,8 +46,8 @@ ${prefText}
         'X-Title': 'AllOneTrip AI',
       },
       body: JSON.stringify({
-        // 🟢 徹底放棄陣列，鎖定單一最穩定的永久免費模型 Llama 3.1 8B
-        model: 'meta-llama/llama-3.1-8b-instruct:free',
+        // 🟢 改用目前 OpenRouter 在線穩定的免費模型
+        model: 'google/gemma-2-9b-it:free',
         messages: apiMessages,
       }),
     });
