@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 
 export default function Home() {
-  // 1. 表單與對話狀態 State
   const [destination, setDestination] = useState('');
   const [days, setDays] = useState('7');
   const [startDate, setStartDate] = useState('2026-08-01');
@@ -13,7 +12,6 @@ export default function Home() {
   const [chatHistory, setChatHistory] = useState<any[]>([]);
   const [inputMsg, setInputMsg] = useState('');
 
-  // 2. 個人化旅行習慣 State
   const [isPrefOpen, setIsPrefOpen] = useState(false);
   const [preferences, setPreferences] = useState({
     departureAirport: '',
@@ -21,7 +19,6 @@ export default function Home() {
     budget: '',
   });
 
-  // 元件載入時，自動從 localStorage 讀取個人習慣
   useEffect(() => {
     const saved = localStorage.getItem('user_preferences');
     if (saved) {
@@ -33,7 +30,6 @@ export default function Home() {
     }
   }, []);
 
-  // 當日期改變時，自動計算天數
   useEffect(() => {
     if (startDate && endDate) {
       const start = new Date(startDate);
@@ -46,14 +42,12 @@ export default function Home() {
     }
   }, [startDate, endDate]);
 
-  // 儲存個人習慣到 localStorage
   const handleSavePreferences = () => {
     localStorage.setItem('user_preferences', JSON.stringify(preferences));
     setIsPrefOpen(false);
     alert('✅ 旅行習慣已成功儲存！Perry 未來生成行程時會自動考慮這些設定！');
   };
 
-  // 發送請求給 AI Agent
   const handleSend = async (customText?: string) => {
     const textToSend = customText || inputMsg;
     if (!textToSend && !destination) return;
@@ -81,7 +75,7 @@ export default function Home() {
           endDate,
           style,
           messages: newHistory,
-          userPreferences: savedPref, // 🟢 自動注入旅行習慣
+          userPreferences: savedPref,
         }),
       });
 
@@ -98,9 +92,41 @@ export default function Home() {
     }
   };
 
+  // 🟢 這是新增的：一鍵生成超短網址並複製到剪貼簿
+  const handleShare = async () => {
+    if (chatHistory.length === 0) return alert('請先生成行程後，才能分享喔！');
+    
+    // 找出 AI 講的最後一句話（就是最新的行程）
+    const lastAssistantMsg = [...chatHistory].reverse().find(m => m.role === 'assistant');
+    if (!lastAssistantMsg) return alert('請先等待 Perry 生成行程後再分享喔！');
+
+    try {
+      const res = await fetch('/api/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: lastAssistantMsg.content,
+          destination: destination || '獨旅專案',
+        }),
+      });
+
+      const data = await res.json();
+      if (data.shareId) {
+        // 組合出乾淨的短網址
+        const shareUrl = `${window.location.origin}/share/${data.shareId}`;
+        // 自動複製到使用者的剪貼簿
+        await navigator.clipboard.writeText(shareUrl);
+        alert(`🎉 分享連結已成功複製！\n\n快把這個短網址傳給朋友吧：\n${shareUrl}`);
+      } else {
+        alert('分享失敗：' + (data.error || '未知錯誤'));
+      }
+    } catch (err) {
+      alert('分享失敗，請檢查網路連線');
+    }
+  };
+
   return (
     <main className="min-h-screen bg-[#0D1117] text-white p-4 md:p-8 flex flex-col items-center">
-      {/* 頂部 Header：左側標題 + 右側「我的旅行習慣」按鈕 */}
       <header className="w-full max-w-xl flex justify-between items-center mb-6 pt-2 border-b border-neutral-800 pb-4">
         <div className="flex flex-col items-start">
           <h1 className="text-xl font-bold flex items-center gap-2 text-white">
@@ -109,18 +135,26 @@ export default function Home() {
           <p className="text-xs text-neutral-400">@allonetrip.perry 專屬行程規劃</p>
         </div>
 
-        {/* 右上角膠囊按鈕 */}
-        <button
-          type="button"
-          onClick={() => setIsPrefOpen(true)}
-          className="px-3.5 py-1.5 bg-neutral-800/80 hover:bg-neutral-700/80 text-neutral-200 text-xs font-medium rounded-full border border-neutral-700/60 transition flex items-center gap-1.5 shadow-sm active:scale-95"
-        >
-          📝 我的旅行習慣
-        </button>
+        {/* 右上角兩顆按鈕：分享 ＆ 旅行習慣 */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleShare}
+            className="px-3.5 py-1.5 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border border-blue-500/30 text-xs font-medium rounded-full transition flex items-center gap-1.5 shadow-sm active:scale-95"
+          >
+            🔗 分享行程
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsPrefOpen(true)}
+            className="px-3.5 py-1.5 bg-neutral-800/80 hover:bg-neutral-700/80 text-neutral-200 text-xs font-medium rounded-full border border-neutral-700/60 transition flex items-center gap-1.5 shadow-sm active:scale-95"
+          >
+            📝 我的旅行習慣
+          </button>
+        </div>
       </header>
 
       <div className="w-full max-w-xl space-y-6">
-        {/* 表單輸入區域卡片 */}
         <div className="bg-[#161B22] p-5 rounded-2xl border border-neutral-800 shadow-xl space-y-4">
           <div>
             <label className="block text-xs font-medium text-neutral-400 mb-1.5">想去哪裡獨旅？</label>
@@ -133,7 +167,6 @@ export default function Home() {
             />
           </div>
 
-          {/* 日期選擇區間 */}
           <div className="space-y-1.5">
             <div className="flex justify-between items-center text-xs text-neutral-400 font-medium">
               <span>設定日期區間 📅</span>
@@ -163,7 +196,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* 風格偏好 */}
           <div>
             <label className="block text-xs font-medium text-neutral-400 mb-1.5">獨旅風格偏好 (選填) 🪄</label>
             <input
@@ -175,7 +207,6 @@ export default function Home() {
             />
           </div>
 
-          {/* 生成行程按鈕 */}
           <button
             type="button"
             onClick={() => handleSend()}
@@ -186,7 +217,6 @@ export default function Home() {
           </button>
         </div>
 
-        {/* 客製化聯繫與習慣引導卡片 */}
         <div className="bg-[#161B22] p-4 rounded-2xl border border-neutral-800 text-center space-y-2">
           <p className="text-xs text-neutral-300 font-medium">想要取得更客製化的獨旅規劃嗎？</p>
           <button
@@ -198,7 +228,6 @@ export default function Home() {
           </button>
         </div>
 
-        {/* 對話區塊與結果呈現 */}
         {chatHistory.length > 0 && (
           <div className="bg-[#161B22] border border-neutral-800 rounded-2xl p-5 space-y-4 shadow-xl">
             <h3 className="text-sm font-bold text-white flex items-center gap-2 border-b border-neutral-800 pb-3">
@@ -227,7 +256,6 @@ export default function Home() {
               )}
             </div>
 
-            {/* 追問輸入框 */}
             <div className="flex gap-2 pt-2 border-t border-neutral-800">
               <input
                 type="text"
@@ -249,7 +277,6 @@ export default function Home() {
         )}
       </div>
 
-      {/* 📝 旅行習慣 Modal 彈窗 */}
       {isPrefOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-[#161B22] border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4 text-left">

@@ -32,10 +32,10 @@ ${preferencesText}
    - ❌ 絕對禁止出現「受限於 Token」、「API 限制」、「行數限制」等字詞！
    - ⭕ 說明長行程架構時請用：「為了讓你閱讀體驗最好，Perry 先為你梳理出這趟長途旅行的【階段性骨架與必去核心地標】！」
 
-2. **長天數行程與景點實體化原則（嚴禁敷衍罐頭詞）**：
+2. **長天數行程與景點實體化原則（嚴禁敷衍與回家廢話）**：
    - 若天數 $> 7$ 天，請採用「階段式區域規劃」，並且必須 **100% 覆蓋到最後一天**！
-   - ❌ **嚴禁** 寫出「自由活動與深度探索」、「自行安排」等空洞廢話！
-   - ⭕ **每個區間都必須寫出具體景點/美食**（若使用者有飲食偏好，請優先推薦符合的餐廳）。
+   - ❌ **絕對禁止** 寫出「自由活動與深度探索」、「返家」、「回家休息」、「整理行李」、「恢復日常」、「整理日記」、「期望下次旅行」等填補數量的廢話！
+   - ⭕ **即使是第 58 天，也必須是當地的真實景點、美食或特色體驗！**
 
 3. **景點與餐廳地圖超連結規範（🚨 嚴格 Markdown 語法）**：
    - ❌ **絕對禁止使用中文全形括號**（例如 `【景點名】(https://...)`），這會導致 Markdown 渲染失敗並秀出長網址！
@@ -121,5 +121,47 @@ ${preferencesText}
 
   } catch (error: any) {
     return NextResponse.json({ error: `❌ 系統連線失敗：${error.message || '請檢查網路'}` }, { status: 500 });
+  }
+}import { NextResponse } from 'next/server';
+import { supabase } from '@/lib/supabase';
+import { nanoid } from 'nanoid';
+
+// 1. 生成短網址並存入 Supabase
+export async function POST(req: Request) {
+  try {
+    const { content, destination } = await req.json();
+    const shareId = nanoid(8); // 生成 8 碼獨一無二的超短 ID
+
+    const { error } = await supabase
+      .from('itineraries')
+      .insert([{ id: shareId, content, destination }]);
+
+    if (error) throw error;
+
+    return NextResponse.json({ shareId });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
+// 2. 讀取短網址行程內容
+export async function GET(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+
+    if (!id) return NextResponse.json({ error: '缺少分享 ID' }, { status: 400 });
+
+    const { data, error } = await supabase
+      .from('itineraries')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error || !data) return NextResponse.json({ error: '行程不存在或已過期' }, { status: 404 });
+
+    return NextResponse.json(data);
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
