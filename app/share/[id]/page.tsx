@@ -1,10 +1,13 @@
 'use client';
 
 import { useEffect, useState, use } from 'react';
+import Link from 'next/link';
+
+export const dynamic = 'force-dynamic';
 
 export default function SharePage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<{ destination?: string; content?: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -26,8 +29,10 @@ export default function SharePage({ params }: { params: Promise<{ id: string }> 
       }
     }
 
-    fetchItinerary();
-  }, [resolvedParams.id]);
+    if (resolvedParams?.id) {
+      fetchItinerary();
+    }
+  }, [resolvedParams?.id]);
 
   if (loading) {
     return (
@@ -37,11 +42,13 @@ export default function SharePage({ params }: { params: Promise<{ id: string }> 
     );
   }
 
-  if (error) {
+  if (error || !data) {
     return (
-      <div className="min-h-screen bg-[#0D1117] text-[#FFFFFF] flex flex-col items-center justify-center p-4">
-        <p className="text-red-400 mb-4">{error}</p>
-        <a href="/" className="px-4 py-2 bg-neutral-800 rounded-xl text-xs">返回首頁自己規劃</a>
+      <div className="min-h-screen bg-[#0D1117] text-white flex flex-col items-center justify-center p-4">
+        <p className="text-red-400 mb-4">{error || '找不到行程'}</p>
+        <Link href="/" className="px-4 py-2 bg-neutral-800 rounded-xl text-xs text-white">
+          返回首頁自己規劃
+        </Link>
       </div>
     );
   }
@@ -53,9 +60,9 @@ export default function SharePage({ params }: { params: Promise<{ id: string }> 
           <h1 className="text-xl font-bold text-white">🧳 Perry 分享的獨旅行程</h1>
           <p className="text-xs text-neutral-400">目的地：{data.destination || '專屬行程'}</p>
         </div>
-        <a href="/" className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded-full font-medium transition">
+        <Link href="/" className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded-full font-medium transition">
           我也要規劃 ✨
-        </a>
+        </Link>
       </header>
 
       <div className="w-full max-w-xl bg-[#161B22] border border-neutral-800 rounded-2xl p-5 shadow-xl">
@@ -65,31 +72,4 @@ export default function SharePage({ params }: { params: Promise<{ id: string }> 
       </div>
     </main>
   );
-}// 🟢 點擊按鈕時，呼叫 Supabase API 生成短網址
-const handleShare = async () => {
-  if (chatHistory.length === 0) return;
-  const lastAssistantMsg = [...chatHistory].reverse().find(m => m.role === 'assistant');
-  if (!lastAssistantMsg) return alert('請先生成行程後再分享喔！');
-
-  try {
-    const res = await fetch('/api/share', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        content: lastAssistantMsg.content,
-        destination: destination || '獨旅專案',
-      }),
-    });
-
-    const data = await res.json();
-    if (data.shareId) {
-      const shareUrl = `${window.location.origin}/share/${data.shareId}`;
-      await navigator.clipboard.writeText(shareUrl);
-      alert(`🎉 專屬超短網址已複製到剪貼簿！\n\n${shareUrl}`);
-    } else {
-      alert('分享失敗：' + (data.error || '未知錯誤'));
-    }
-  } catch (err) {
-    alert('分享失敗，請檢查網路連線');
-  }
-};
+}
