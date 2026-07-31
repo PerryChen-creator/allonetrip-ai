@@ -46,12 +46,11 @@ ${prefText}
         'X-Title': 'AllOneTrip AI',
       },
       body: JSON.stringify({
-        // 🟢 使用 OpenRouter 官方 Fallback 備援機制，依序自動挑選線上的免費模型
+        // 🟢 精確限制為 3 個高穩定度免費模型 (符合 OpenRouter 規範)
         models: [
-          'meta-llama/llama-3.1-8b-instruct:free',
+          'meta-llama/llama-3.3-70b-instruct:free',
           'google/gemini-2.0-flash-lite-preview-001:free',
-          'deepseek/deepseek-r1:free',
-          'qwen/qwen-2.5-7b-instruct:free'
+          'deepseek/deepseek-r1:free'
         ],
         messages: apiMessages,
       }),
