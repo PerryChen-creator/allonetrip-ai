@@ -1,42 +1,54 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
-import { nanoid } from 'nanoid';
 
-// 1. 生成超短 ID 存入 Supabase
 export async function POST(req: Request) {
   try {
-    const { content, destination } = await req.json();
-    const shareId = nanoid(8); // 自動生成 8 碼極短 ID
+    const { destination, days, startDate, endDate, style, messages, userPreferences } = await req.json();
 
-    const { error } = await supabase
-      .from('itineraries')
-      .insert([{ id: shareId, content, destination }]);
+    // 整理個人化旅行習慣資訊
+    const prefText = userPreferences ? `
+【使用者習慣設定】
+- 習慣出發地點：${userPreferences.departureAirport || '未指定'}
+- 飲食限制偏好：${userPreferences.dietary || '無特別限制'}
+- 預算與住宿風格：${userPreferences.budget || '彈性'}
+` : '';
 
-    if (error) throw error;
+    // 🟢 注意：這裡的 URL 範例改用英文，避免觸發 Next.js Turbopack 系統 Bug
+    const systemPrompt = `你是一位專業且貼心的獨旅 AI 助手「Perry」(@allonetrip.perry)。
+你的任務是為使用者規劃極具個人化特色的獨立旅行行程。
 
-    return NextResponse.json({ shareId });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
-  }
-}
+${prefText}
 
-// 2. 讀取 Supabase 裡的行程
-export async function GET(req: Request) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const id = searchParams.get('id');
+【排版與輸出規範】
+1. 輸出格式請使用清晰的 Markdown 結構 (Headers, Bullet Points, Bold)。
+2. 景點與美食請務必附上 Google Maps 搜尋連結，範例格式如下：
+   [景點名稱](https://www.google.com/maps/search/?api=1&query=LocationName)
+3. 請保持親切、專業且有條理的對話語氣。`;
 
-    if (!id) return NextResponse.json({ error: '缺少分享 ID' }, { status: 400 });
+    const apiMessages = [
+      { role: 'system', content: systemPrompt },
+      ...(messages || []),
+    ];
 
-    const { data, error } = await supabase
-      .from('itineraries')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'openai/gpt-4o-mini',
+        messages: apiMessages,
+      }),
+    });
 
-    if (error || !data) return NextResponse.json({ error: '行程不存在或已過期' }, { status: 404 });
+    const data = await res.json();
+    const reply = data.choices?.[0]?.message?.content;
 
-    return NextResponse.json(data);
+    if (!reply) {
+      return NextResponse.json({ error: 'AI 回應生成失敗，請檢查 API Key' }, { status: 500 });
+    }
+
+    return NextResponse.json({ reply });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
