@@ -2,9 +2,18 @@ import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
   try {
+    const apiKey = process.env.OPENROUTER_API_KEY;
+
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: '伺服器未設定 OPENROUTER_API_KEY，請至 Vercel Dashboard -> Settings -> Environment Variables 設定環境變數' },
+        { status: 500 }
+      );
+    }
+
     const { destination, days, startDate, endDate, style, messages, userPreferences } = await req.json();
 
-const prefText = userPreferences ? `
+    const prefText = userPreferences ? `
 【使用者個人習慣與偏好設定】
 - 習慣出發地點：${userPreferences.departureAirport || '未指定'}
 - 飲食限制偏好：${userPreferences.dietary || '無特別限制'}
@@ -12,8 +21,7 @@ const prefText = userPreferences ? `
 - 💡 其他補充需求/習慣：${userPreferences.customNotes || '無'}
 ` : '';
 
-    // 🟢 關鍵修正：範例 URL 請勿在 Query 帶入中文字串，避免 Next.js 16 Rust 打包器崩潰
-    const systemPrompt = `你是一位專業且貼心的獨旅 AI 助手「Perry」(@allonetrip.perry)。
+    const systemPrompt = `你是一位專業且貼心的獨旅 AI 助手「Perry」(@allonetrip_perry)。
 你的任務是為使用者規劃極具個人化特色的獨立旅行行程。
 
 ${prefText}
@@ -32,8 +40,10 @@ ${prefText}
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://allonetrip-ai.vercel.app',
+        'X-Title': 'AllOneTrip AI',
       },
       body: JSON.stringify({
         model: 'openai/gpt-4o-mini',
@@ -41,15 +51,21 @@ ${prefText}
       }),
     });
 
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error('OpenRouter API Response Error:', errText);
+      return NextResponse.json({ error: `API Key 驗證失敗或餘額不足 (${res.status})` }, { status: res.status });
+    }
+
     const data = await res.json();
     const reply = data.choices?.[0]?.message?.content;
 
     if (!reply) {
-      return NextResponse.json({ error: 'AI 回應生成失敗，請檢查 API Key' }, { status: 500 });
+      return NextResponse.json({ error: 'AI 回應生成失敗，請檢查 API Key 或模型狀態' }, { status: 500 });
     }
 
     return NextResponse.json({ reply });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: err.message || '伺服器內部錯誤' }, { status: 500 });
   }
 }

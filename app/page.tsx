@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 export default function Home() {
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // 1. 表單與對話狀態（日期預設都不帶入值）
+  // 1. 表單狀態 (日期預設為空)
   const [destination, setDestination] = useState('');
   const [days, setDays] = useState('0');
   const [startDate, setStartDate] = useState('');
@@ -15,17 +15,30 @@ export default function Home() {
   const [chatHistory, setChatHistory] = useState<any[]>([]);
   const [inputMsg, setInputMsg] = useState('');
 
-  // 偵測裝置螢幕寬度，隨裝置動態切換 placeholder 文案長短
+  // 2. 響應式與滑動監聽 (固定列 Fix Bar)
   const [isMobile, setIsMobile] = useState(false);
+  const [showFixedBar, setShowFixedBar] = useState(false);
 
   useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 640);
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    const handleScroll = () => setShowFixedBar(window.scrollY > 280);
+
     handleResize();
+    handleScroll();
+
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('scroll', handleScroll);
+    };
   }, []);
 
-  // 2. 個人化旅行習慣 Modal 狀態
+  // 3. 日期與表單合法性驗證
+  const isDateValid = startDate !== '' && endDate !== '' && endDate >= startDate;
+  const isFormValid = destination.trim() !== '' && isDateValid;
+
+  // 4. Modal 狀態
   const [isPrefOpen, setIsPrefOpen] = useState(false);
   const [preferences, setPreferences] = useState({
     departureAirport: '',
@@ -34,39 +47,29 @@ export default function Home() {
     customNotes: '',
   });
 
-  // 3. 分享彈窗 Modal 狀態
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
   const [isSharing, setIsSharing] = useState(false);
 
-  // 4. 🌗 亮暗色主題切換狀態
+  // 5. 明暗主題
   const [isDarkMode, setIsDarkMode] = useState(true);
 
-  // 讀取 localStorage (習慣 & 主題)
   useEffect(() => {
     const savedPref = localStorage.getItem('user_preferences');
     if (savedPref) {
-      try {
-        setPreferences(JSON.parse(savedPref));
-      } catch (e) {
-        console.error('Failed to parse user preferences');
-      }
+      try { setPreferences(JSON.parse(savedPref)); } catch (e) {}
     }
-    
     const savedTheme = localStorage.getItem('theme_mode');
-    if (savedTheme === 'light') {
-      setIsDarkMode(false);
-    }
+    if (savedTheme === 'light') setIsDarkMode(false);
   }, []);
 
-  // 切換主題並存入記憶
   const toggleTheme = () => {
     const newMode = !isDarkMode;
     setIsDarkMode(newMode);
     localStorage.setItem('theme_mode', newMode ? 'dark' : 'light');
   };
 
-  // 自動計算天數（兩者皆選擇時才計算）
+  // 動態天數計算
   useEffect(() => {
     if (startDate && endDate) {
       const start = new Date(startDate);
@@ -91,11 +94,11 @@ export default function Home() {
 
   const handleSend = async (customText?: string) => {
     const textToSend = customText || inputMsg;
-    if (!textToSend && !destination) return;
+    if (!textToSend && !isFormValid) return;
 
     setLoading(true);
 
-    const dateInfo = (startDate && endDate) ? `，日期：${startDate} 至 ${endDate} (共 ${days} 天)` : '';
+    const dateInfo = `，日期：${startDate} 至 ${endDate} (共 ${days} 天)`;
     const promptText = customText 
       ? customText 
       : `我想去【${destination}】獨旅${dateInfo}${style ? `，風格：${style}` : ''}。請為我規劃行程！`;
@@ -134,7 +137,6 @@ export default function Home() {
     }
   };
 
-  // 打開分享彈窗
   const handleOpenShareModal = async () => {
     if (chatHistory.length === 0) return alert('請先生成行程後再進行分享！');
     
@@ -156,8 +158,7 @@ export default function Home() {
 
       const data = await res.json();
       if (data.shareId) {
-        const generatedUrl = `${window.location.origin}/share/${data.shareId}`;
-        setShareUrl(generatedUrl);
+        setShareUrl(`${window.location.origin}/share/${data.shareId}`);
       } else {
         alert('生成短網址失敗：' + (data.error || '未知錯誤'));
       }
@@ -168,257 +169,300 @@ export default function Home() {
     }
   };
 
-  // 社群分享捷徑
   const shareToLine = () => window.open(`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(shareUrl)}`, '_blank');
   const shareToFB = () => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, '_blank');
   const shareToX = () => window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent('看看我的獨旅行程！')}`, '_blank');
 
   return (
-    <main className={`min-h-screen transition-colors duration-300 p-4 md:p-8 flex flex-col items-center ${isDarkMode ? 'bg-[#0D1117] text-white' : 'bg-gray-50 text-gray-900'}`}>
-      {/* 🟢 Header Navigation：手機版兩層結構，擺脫擁擠問題 */}
-      <header className={`w-full max-w-xl flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6 pt-2 border-b pb-4 transition-colors duration-300 ${isDarkMode ? 'border-neutral-800' : 'border-gray-200'}`}>
-        <div className="flex justify-between items-center w-full sm:w-auto">
-          <div className="flex flex-col items-start">
-            <h1 className={`text-xl font-bold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              🧳 獨旅 AI 幫手
-            </h1>
-            <p className={`text-xs ${isDarkMode ? 'text-neutral-400' : 'text-gray-500'}`}>
-              <a 
-                href="https://www.instagram.com/allonetrip_perry/" 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                className="hover:underline hover:text-blue-400 transition"
-              >
+    <div className={`min-h-screen flex flex-col md:flex-row transition-colors duration-300 ${isDarkMode ? 'bg-[#0D1117] text-white' : 'bg-gray-50 text-gray-900'}`}>
+      
+      {/* 🟢 桌機版：Gemini 風格左側邊欄 (Left Sidebar) */}
+      <aside className={`hidden md:flex flex-col justify-between w-64 fixed left-0 top-0 h-screen p-6 border-r transition-colors duration-300 z-30 ${
+        isDarkMode ? 'bg-[#161B22] border-neutral-800' : 'bg-white border-gray-200'
+      }`}>
+        <div className="space-y-6">
+          <div className="space-y-1">
+            <h1 className="text-xl font-bold flex items-center gap-2">🧳 獨旅 AI 幫手</h1>
+            <p className="text-xs text-neutral-400">
+              <a href="https://www.instagram.com/allonetrip_perry/" target="_blank" rel="noopener noreferrer" className="hover:underline hover:text-blue-400 transition">
                 @allonetrip_perry
               </a> 專屬行程規劃
             </p>
           </div>
 
-          {/* 手機版右上角主題切換鈕 */}
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className={`sm:hidden w-8 h-8 rounded-full border transition flex items-center justify-center shadow-sm active:scale-95 shrink-0 ${
-              isDarkMode ? 'bg-neutral-800/80 hover:bg-neutral-700/80 text-neutral-200 border-neutral-700/60' : 'bg-white hover:bg-gray-100 text-gray-700 border-gray-300'
-            }`}
-            title={isDarkMode ? '切換至亮色模式' : '切換至暗色模式'}
-          >
-            <span className="text-xs leading-none">{isDarkMode ? '☀️' : '🌙'}</span>
-          </button>
-        </div>
-
-        {/* 動作按鈕區塊 */}
-        <div className="flex items-center justify-end gap-2 w-full sm:w-auto pt-1 sm:pt-0">
-          {chatHistory.length > 0 && (
-            <button
-              type="button"
-              onClick={handleOpenShareModal}
-              className={`h-8 px-3 text-xs font-medium rounded-full transition flex items-center justify-center gap-1 shadow-sm active:scale-95 border ${
-                isDarkMode ? 'bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border-blue-500/30' : 'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200'
-              }`}
-            >
-              🔗 分享行程
-            </button>
-          )}
-          
           <button
             type="button"
             onClick={() => setIsPrefOpen(true)}
-            className={`h-8 px-3.5 text-xs font-medium rounded-full border transition flex items-center justify-center gap-1.5 shadow-sm active:scale-95 ${
-              isDarkMode ? 'bg-neutral-800/80 hover:bg-neutral-700/80 text-neutral-200 border-neutral-700/60' : 'bg-white hover:bg-gray-100 text-gray-700 border-gray-300'
+            className={`w-full py-2.5 px-4 text-xs font-medium rounded-xl border transition flex items-center justify-center gap-2 shadow-sm ${
+              isDarkMode ? 'bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border-neutral-700' : 'bg-gray-100 hover:bg-gray-200 text-gray-800 border-gray-300'
             }`}
           >
             📝 設定我的旅行習慣
           </button>
-          
-          {/* 電腦版主題切換鈕 */}
+        </div>
+
+        <div className="pt-4 border-t border-neutral-800/40 flex items-center justify-between">
+          <span className="text-xs text-neutral-400">切換主題模式</span>
           <button
             type="button"
             onClick={toggleTheme}
-            className={`hidden sm:flex w-8 h-8 rounded-full border transition items-center justify-center shadow-sm active:scale-95 shrink-0 ${
-              isDarkMode ? 'bg-neutral-800/80 hover:bg-neutral-700/80 text-neutral-200 border-neutral-700/60' : 'bg-white hover:bg-gray-100 text-gray-700 border-gray-300'
+            className={`w-8 h-8 rounded-full border transition flex items-center justify-center ${
+              isDarkMode ? 'bg-neutral-800 border-neutral-700 text-white' : 'bg-gray-100 border-gray-300 text-gray-800'
             }`}
-            title={isDarkMode ? '切換至亮色模式' : '切換至暗色模式'}
           >
             <span className="text-xs leading-none">{isDarkMode ? '☀️' : '🌙'}</span>
           </button>
         </div>
-      </header>
+      </aside>
 
-      <div className="w-full max-w-xl space-y-6">
-        {/* 輸入表單卡片 */}
-        <div className={`p-5 rounded-2xl border shadow-xl space-y-4 transition-colors duration-300 ${isDarkMode ? 'bg-[#161B22] border-neutral-800' : 'bg-white border-gray-200 shadow-gray-200/50'}`}>
-          <div>
-            <label className={`block text-xs font-medium mb-1.5 ${isDarkMode ? 'text-neutral-400' : 'text-gray-600'}`}>想去哪裡獨旅？</label>
-            <input
-              type="text"
-              placeholder={isMobile ? "例如：日本環島、極光之旅" : "例如：日本環島、北歐極光之旅、西班牙朝聖之路"}
-              value={destination}
-              onChange={(e) => setDestination(e.target.value)}
-              className={`w-full rounded-xl px-4 py-2.5 text-sm transition focus:outline-none focus:border-blue-500 border ${
-                isDarkMode ? 'bg-[#0D1117] border-neutral-800 text-white placeholder-neutral-400' : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400'
-              }`}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <div className={`flex justify-between items-center text-xs font-medium ${isDarkMode ? 'text-neutral-400' : 'text-gray-600'}`}>
-              <span>旅遊日期區間 📅</span>
-              {startDate && endDate && parseInt(days) > 0 && (
-                <span className={`px-2 py-0.5 rounded-md border font-mono ${
-                  isDarkMode ? 'text-blue-400 bg-blue-950/60 border-blue-800/40' : 'text-blue-700 bg-blue-50 border-blue-200'
-                }`}>
-                  共 {days} 天 ({parseInt(days) > 1 ? parseInt(days) - 1 : 0} 夜)
-                </span>
-              )}
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={`block text-[10px] mb-1 ${isDarkMode ? 'text-neutral-400' : 'text-gray-500'}`}>出發日期</label>
-                <input
-                  type="date"
-                  min={todayStr}
-                  value={startDate}
-                  onChange={(e) => {
-                    const newStart = e.target.value;
-                    setStartDate(newStart);
-                    if (endDate && newStart > endDate) setEndDate(newStart);
-                  }}
-                  className={`w-full rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 border ${
-                    isDarkMode ? 'bg-[#0D1117] border-neutral-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'
-                  }`}
-                />
-              </div>
-              <div>
-                <label className={`block text-[10px] mb-1 ${isDarkMode ? 'text-neutral-400' : 'text-gray-500'}`}>回程日期</label>
-                <input
-                  type="date"
-                  min={startDate || todayStr}
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className={`w-full rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 border ${
-                    isDarkMode ? 'bg-[#0D1117] border-neutral-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'
-                  }`}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <label className={`block text-xs font-medium mb-1.5 ${isDarkMode ? 'text-neutral-400' : 'text-gray-600'}`}>獨旅風格與靈感 (選填) 🔗</label>
-            <input
-              type="text"
-              placeholder="例如：探索登山、夜生活，或貼上連結"
-              value={style}
-              onChange={(e) => setStyle(e.target.value)}
-              className={`w-full rounded-xl px-4 py-2.5 text-sm transition focus:outline-none focus:border-blue-500 border ${
-                isDarkMode ? 'bg-[#0D1117] border-neutral-800 text-white placeholder-neutral-400' : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400'
-              }`}
-            />
-            <p className={`text-[11px] mt-1.5 ${isDarkMode ? 'text-neutral-400' : 'text-gray-500'}`}>
-              可輸入旅遊喜好，或貼上 IG / YouTube 公開景點圖片或影片連結
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => handleSend()}
-            disabled={loading || !destination}
-            className={`w-full py-3 font-bold text-sm rounded-xl transition shadow-lg flex items-center justify-center gap-2 active:scale-[0.99] ${
-              isDarkMode 
-                ? 'bg-white text-black hover:bg-neutral-200 disabled:bg-neutral-800 disabled:text-neutral-400' 
-                : 'bg-gray-900 text-white hover:bg-gray-800 disabled:bg-gray-200 disabled:text-gray-400'
-            }`}
-          >
-            {loading ? 'Perry 正在為你規劃專屬行程...' : '一鍵生成專屬行程 ✨'}
-          </button>
+      {/* 🟢 手機版：頂部輕量 Nav Bar */}
+      <header className={`md:hidden sticky top-0 z-40 w-full px-4 py-3 border-b backdrop-blur-md flex justify-between items-center ${
+        isDarkMode ? 'bg-[#0D1117]/90 border-neutral-800' : 'bg-white/90 border-gray-200'
+      }`}>
+        <div>
+          <h1 className="text-base font-bold">🧳 獨旅 AI 幫手</h1>
+          <a href="https://www.instagram.com/allonetrip_perry/" target="_blank" rel="noopener noreferrer" className="text-[10px] text-neutral-400 hover:underline">
+            @allonetrip_perry
+          </a>
         </div>
 
-        {/* 🟢 商業轉化 CTA：精準匹配截圖文案 */}
-        <div className={`p-5 rounded-2xl border text-center space-y-3 transition-colors duration-300 ${
-          isDarkMode ? 'bg-[#161B22] border-neutral-800' : 'bg-white border-gray-200 shadow-sm'
-        }`}>
-          <p className={`text-xs font-medium ${isDarkMode ? 'text-neutral-300' : 'text-gray-700'}`}>
-            想要來場更客製化的旅程規劃嗎？
-          </p>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsPrefOpen(true)}
+            className={`px-3 py-1.5 text-xs rounded-full border ${
+              isDarkMode ? 'bg-neutral-800 border-neutral-700 text-neutral-200' : 'bg-gray-100 border-gray-300 text-gray-800'
+            }`}
+          >
+            📝 習慣
+          </button>
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className={`w-7 h-7 rounded-full border flex items-center justify-center ${
+              isDarkMode ? 'bg-neutral-800 border-neutral-700' : 'bg-gray-100 border-gray-300'
+            }`}
+          >
+            <span className="text-xs">{isDarkMode ? '☀️' : '🌙'}</span>
+          </button>
+        </div>
+      </header>
+
+      {/* 🟢 滑動超過 Placeholder 後出現的懸浮 Fix Bar (雙 Icon) */}
+      {showFixedBar && (
+        <div className="fixed top-4 right-4 md:right-8 z-50 flex items-center gap-2 bg-[#161B22]/90 dark:bg-[#161B22]/90 bg-white/90 backdrop-blur-md p-1.5 px-3 rounded-full border border-neutral-700/50 shadow-2xl animate-fade-in">
+          <button
+            onClick={handleOpenShareModal}
+            className="p-2 rounded-full hover:bg-neutral-800/20 transition text-sm"
+            title="分享行程"
+          >
+            🔗
+          </button>
           <a
             href="https://www.instagram.com/allonetrip_perry/"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-xs font-bold rounded-full shadow-md hover:shadow-lg transition active:scale-95"
+            className="p-2 rounded-full hover:bg-neutral-800/20 transition text-sm"
+            title="與我聯繫"
           >
-            📩 與我聯繫
+            📩
           </a>
         </div>
+      )}
 
-        {/* 對話呈現區域 */}
-        {chatHistory.length > 0 && (
-          <div className={`border rounded-2xl p-5 space-y-4 shadow-xl transition-colors duration-300 ${isDarkMode ? 'bg-[#161B22] border-neutral-800' : 'bg-white border-gray-200 shadow-gray-200/50'}`}>
-            <div className={`flex justify-between items-center border-b pb-3 ${isDarkMode ? 'border-neutral-800' : 'border-gray-200'}`}>
-              <h3 className={`text-sm font-bold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                📍 專屬獨旅行程對話
-              </h3>
-              <button
-                type="button"
-                onClick={handleOpenShareModal}
-                className={`text-xs hover:underline font-medium ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}
-              >
-                🔗 分享公開連結
-              </button>
+      {/* 🟢 主要內容區 */}
+      <main className="flex-1 md:ml-64 p-4 md:p-8 flex flex-col items-center">
+        <div className="w-full max-w-xl space-y-6">
+          
+          {/* 輸入卡片 */}
+          <div className={`p-5 rounded-2xl border shadow-xl space-y-4 transition-colors duration-300 ${
+            isDarkMode ? 'bg-[#161B22] border-neutral-800' : 'bg-white border-gray-200 shadow-gray-200/50'
+          }`}>
+            <div>
+              <label className={`block text-xs font-medium mb-1.5 ${isDarkMode ? 'text-neutral-400' : 'text-gray-600'}`}>想去哪裡獨旅？</label>
+              <input
+                type="text"
+                placeholder={isMobile ? "例如：日本環島、極光之旅" : "例如：日本環島、北歐極光之旅、西班牙朝聖之路"}
+                value={destination}
+                onChange={(e) => setDestination(e.target.value)}
+                className={`w-full rounded-xl px-4 py-2.5 text-sm transition focus:outline-none focus:border-blue-500 border ${
+                  isDarkMode ? 'bg-[#0D1117] border-neutral-800 text-white placeholder-neutral-400' : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400'
+                }`}
+              />
             </div>
 
-            <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
-              {chatHistory.map((msg, idx) => (
-                <div
-                  key={idx}
-                  className={`p-4 rounded-xl text-xs leading-relaxed ${
-                    msg.role === 'user'
-                      ? (isDarkMode 
-                          ? 'bg-blue-950/60 border border-blue-800/40 text-blue-100 ml-auto max-w-[85%]' 
-                          : 'bg-blue-500 border border-blue-600 text-white ml-auto max-w-[85%]')
-                      : (isDarkMode 
-                          ? 'bg-[#0D1117] border border-neutral-800 text-neutral-200' 
-                          : 'bg-gray-50 border border-gray-200 text-gray-800')
-                  }`}
-                >
-                  <div className="whitespace-pre-wrap">{msg.content}</div>
-                </div>
-              ))}
+            {/* 旅遊日期區間 (強制必填) */}
+            <div className="space-y-1.5">
+              <div className={`flex justify-between items-center text-xs font-medium ${isDarkMode ? 'text-neutral-400' : 'text-gray-600'}`}>
+                <span className="flex items-center gap-1">
+                  旅遊日期區間 📅 <span className="text-red-500 text-xs">*</span>
+                </span>
+                {isDateValid && parseInt(days) > 0 && (
+                  <span className={`px-2 py-0.5 rounded-md border font-mono ${
+                    isDarkMode ? 'text-blue-400 bg-blue-950/60 border-blue-800/40' : 'text-blue-700 bg-blue-50 border-blue-200'
+                  }`}>
+                    共 {days} 天 ({parseInt(days) > 1 ? parseInt(days) - 1 : 0} 夜)
+                  </span>
+                )}
+              </div>
 
-              {loading && (
-                <div className={`p-4 border rounded-xl text-xs animate-pulse flex items-center gap-2 ${
-                  isDarkMode ? 'bg-[#0D1117] border-neutral-800 text-neutral-400' : 'bg-gray-50 border-gray-200 text-gray-500'
-                }`}>
-                  <span className="inline-block w-2 h-2 bg-blue-500 rounded-full animate-ping"></span>
-                  Perry 正在為你梳理階段式骨架與 Google Maps 超連結...
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={`block text-[10px] mb-1 ${isDarkMode ? 'text-neutral-400' : 'text-gray-500'}`}>出發日期</label>
+                  <input
+                    type="date"
+                    min={todayStr}
+                    value={startDate}
+                    onChange={(e) => {
+                      const newStart = e.target.value;
+                      setStartDate(newStart);
+                      if (endDate && newStart > endDate) setEndDate(newStart);
+                    }}
+                    className={`w-full rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 border ${
+                      isDarkMode ? 'bg-[#0D1117] border-neutral-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'
+                    }`}
+                  />
                 </div>
+                <div>
+                  <label className={`block text-[10px] mb-1 ${isDarkMode ? 'text-neutral-400' : 'text-gray-500'}`}>回程日期</label>
+                  <input
+                    type="date"
+                    min={startDate || todayStr}
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className={`w-full rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 border ${
+                      isDarkMode ? 'bg-[#0D1117] border-neutral-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              {/* 日期未填寫的錯誤提示 */}
+              {destination.trim() !== '' && !isDateValid && (
+                <p className="text-[11px] text-red-400 font-medium mt-1 animate-pulse">
+                  ⚠️ 旅遊日期區間為必填項目，請選擇出發與回程日期
+                </p>
               )}
             </div>
 
-            <div className={`flex gap-2 pt-2 border-t ${isDarkMode ? 'border-neutral-800' : 'border-gray-200'}`}>
+            <div>
+              <label className={`block text-xs font-medium mb-1.5 ${isDarkMode ? 'text-neutral-400' : 'text-gray-600'}`}>獨旅風格與靈感 (選填) 🔗</label>
               <input
                 type="text"
-                value={inputMsg}
-                onChange={(e) => setInputMsg(e.target.value)}
-                placeholder="問問 Perry... (例如：展開 Day 1-5 的細節)"
-                className={`flex-1 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-blue-500 border ${
+                placeholder="例如：探索登山、夜生活，或貼上連結"
+                value={style}
+                onChange={(e) => setStyle(e.target.value)}
+                className={`w-full rounded-xl px-4 py-2.5 text-sm transition focus:outline-none focus:border-blue-500 border ${
                   isDarkMode ? 'bg-[#0D1117] border-neutral-800 text-white placeholder-neutral-400' : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400'
                 }`}
-                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
               />
-              <button
-                onClick={() => handleSend()}
-                disabled={loading || !inputMsg}
-                className={`px-4 py-2.5 rounded-xl text-xs font-medium transition ${
-                  isDarkMode ? 'bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50 text-white' : 'bg-gray-900 hover:bg-gray-800 disabled:opacity-50 text-white'
-                }`}
-              >
-                發送
-              </button>
+              <p className={`text-[11px] mt-1.5 ${isDarkMode ? 'text-neutral-400' : 'text-gray-500'}`}>
+                可輸入旅遊喜好，或貼上 IG / YouTube 公開景點圖片或影片連結
+              </p>
             </div>
+
+            <button
+              type="button"
+              onClick={() => handleSend()}
+              disabled={loading || !isFormValid}
+              className={`w-full py-3 font-bold text-sm rounded-xl transition shadow-lg flex items-center justify-center gap-2 active:scale-[0.99] ${
+                isDarkMode 
+                  ? 'bg-white text-black hover:bg-neutral-200 disabled:bg-neutral-800 disabled:text-neutral-500' 
+                  : 'bg-gray-900 text-white hover:bg-gray-800 disabled:bg-gray-200 disabled:text-gray-400'
+              }`}
+            >
+              {loading ? 'Perry 正在為你規劃專屬行程...' : '一鍵生成專屬行程 ✨'}
+            </button>
           </div>
-        )}
-      </div>
+
+          {/* 導購 CTA */}
+          <div className={`p-5 rounded-2xl border text-center space-y-3 transition-colors duration-300 ${
+            isDarkMode ? 'bg-[#161B22] border-neutral-800' : 'bg-white border-gray-200 shadow-sm'
+          }`}>
+            <p className={`text-xs font-medium ${isDarkMode ? 'text-neutral-300' : 'text-gray-700'}`}>
+              想要來場更客製化的旅程規劃嗎？
+            </p>
+            <a
+              href="https://www.instagram.com/allonetrip_perry/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white text-xs font-bold rounded-full shadow-md hover:shadow-lg transition active:scale-95"
+            >
+              📩 與我聯繫
+            </a>
+          </div>
+
+          {/* 對話呈現區域 */}
+          {chatHistory.length > 0 && (
+            <div className={`border rounded-2xl p-5 space-y-4 shadow-xl transition-colors duration-300 ${
+              isDarkMode ? 'bg-[#161B22] border-neutral-800' : 'bg-white border-gray-200 shadow-gray-200/50'
+            }`}>
+              <div className={`flex justify-between items-center border-b pb-3 ${isDarkMode ? 'border-neutral-800' : 'border-gray-200'}`}>
+                <h3 className={`text-sm font-bold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                  📍 專屬獨旅行程對話
+                </h3>
+                <button
+                  type="button"
+                  onClick={handleOpenShareModal}
+                  className={`text-xs hover:underline font-medium ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}
+                >
+                  🔗 分享行程
+                </button>
+              </div>
+
+              <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
+                {chatHistory.map((msg, idx) => (
+                  <div
+                    key={idx}
+                    className={`p-4 rounded-xl text-xs leading-relaxed ${
+                      msg.role === 'user'
+                        ? (isDarkMode 
+                            ? 'bg-blue-950/60 border border-blue-800/40 text-blue-100 ml-auto max-w-[85%]' 
+                            : 'bg-blue-500 border border-blue-600 text-white ml-auto max-w-[85%]')
+                        : (isDarkMode 
+                            ? 'bg-[#0D1117] border border-neutral-800 text-neutral-200' 
+                            : 'bg-gray-50 border border-gray-200 text-gray-800')
+                    }`}
+                  >
+                    <div className="whitespace-pre-wrap">{msg.content}</div>
+                  </div>
+                ))}
+
+                {loading && (
+                  <div className={`p-4 border rounded-xl text-xs animate-pulse flex items-center gap-2 ${
+                    isDarkMode ? 'bg-[#0D1117] border-neutral-800 text-neutral-400' : 'bg-gray-50 border-gray-200 text-gray-500'
+                  }`}>
+                    <span className="inline-block w-2 h-2 bg-blue-500 rounded-full animate-ping"></span>
+                    Perry 正在為你梳理階段式骨架與 Google Maps 超連結...
+                  </div>
+                )}
+              </div>
+
+              <div className={`flex gap-2 pt-2 border-t ${isDarkMode ? 'border-neutral-800' : 'border-gray-200'}`}>
+                <input
+                  type="text"
+                  value={inputMsg}
+                  onChange={(e) => setInputMsg(e.target.value)}
+                  placeholder="問問 Perry... (例如：展開 Day 1-5 的細節)"
+                  className={`flex-1 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-blue-500 border ${
+                    isDarkMode ? 'bg-[#0D1117] border-neutral-800 text-white placeholder-neutral-400' : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400'
+                  }`}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                />
+                <button
+                  onClick={() => handleSend()}
+                  disabled={loading || !inputMsg}
+                  className={`px-4 py-2.5 rounded-xl text-xs font-medium transition ${
+                    isDarkMode ? 'bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50 text-white' : 'bg-gray-900 hover:bg-gray-800 disabled:opacity-50 text-white'
+                  }`}
+                >
+                  發送
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
 
       {/* 📝 旅行習慣 Modal */}
       {isPrefOpen && (
@@ -499,12 +543,12 @@ export default function Home() {
         </div>
       )}
 
-      {/* 🔗 分享公開連結 Modal */}
+      {/* 🔗 分享行程 Modal */}
       {isShareModalOpen && (
         <div className={`fixed inset-0 backdrop-blur-sm flex items-center justify-center p-4 z-50 transition-colors ${isDarkMode ? 'bg-black/80' : 'bg-gray-900/40'}`}>
           <div className={`border rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4 text-left ${isDarkMode ? 'bg-[#161B22] border-neutral-800' : 'bg-white border-gray-200'}`}>
             <div className={`flex justify-between items-center border-b pb-3 ${isDarkMode ? 'border-neutral-800' : 'border-gray-200'}`}>
-              <h3 className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>可分享的公開連結</h3>
+              <h3 className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>分享行程公開連結</h3>
               <button onClick={() => setIsShareModalOpen(false)} className={`p-1 rounded-lg transition ${isDarkMode ? 'text-neutral-400 hover:text-white' : 'text-gray-400 hover:text-gray-800'}`}>✕</button>
             </div>
 
@@ -556,6 +600,6 @@ export default function Home() {
           </div>
         </div>
       )}
-    </main>
+    </div>
   );
 }
