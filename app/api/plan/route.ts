@@ -46,8 +46,12 @@ ${prefText}
         'X-Title': 'AllOneTrip AI',
       },
       body: JSON.stringify({
-        // 🟢 改用目前 OpenRouter 在線穩定的免費模型
-        model: 'google/gemma-2-9b-it:free',
+        // 🟢 終極護城河：使用 OpenRouter 伺服器最多、永遠不會擠爆的 3 大老牌免費模型
+        models: [
+          'mistralai/mistral-7b-instruct:free',
+          'huggingfaceh4/zephyr-7b-beta:free',
+          'openchat/openchat-7b:free'
+        ],
         messages: apiMessages,
       }),
     });
