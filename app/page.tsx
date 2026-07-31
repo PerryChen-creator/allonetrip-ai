@@ -26,17 +26,33 @@ export default function Home() {
   const [shareUrl, setShareUrl] = useState('');
   const [isSharing, setIsSharing] = useState(false);
 
-  // 讀取 localStorage 個人習慣
+  // 4. 🌗 亮暗色主題切換狀態
+  const [isDarkMode, setIsDarkMode] = useState(true);
+
+  // 讀取 localStorage (習慣 & 主題)
   useEffect(() => {
-    const saved = localStorage.getItem('user_preferences');
-    if (saved) {
+    const savedPref = localStorage.getItem('user_preferences');
+    if (savedPref) {
       try {
-        setPreferences(JSON.parse(saved));
+        setPreferences(JSON.parse(savedPref));
       } catch (e) {
         console.error('Failed to parse user preferences');
       }
     }
+    
+    // 讀取主題記憶
+    const savedTheme = localStorage.getItem('theme_mode');
+    if (savedTheme === 'light') {
+      setIsDarkMode(false);
+    }
   }, []);
+
+  // 切換主題並存入記憶
+  const toggleTheme = () => {
+    const newMode = !isDarkMode;
+    setIsDarkMode(newMode);
+    localStorage.setItem('theme_mode', newMode ? 'dark' : 'light');
+  };
 
   // 計算天數
   useEffect(() => {
@@ -101,7 +117,7 @@ export default function Home() {
     }
   };
 
-  // 🟢 打開分享彈窗並自動向 Supabase 生成超短網址
+  // 打開分享彈窗
   const handleOpenShareModal = async () => {
     if (chatHistory.length === 0) return alert('請先生成行程後再進行分享！');
     
@@ -136,24 +152,18 @@ export default function Home() {
   };
 
   // 社群分享捷徑
-  const shareToLine = () => {
-    window.open(`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(shareUrl)}`, '_blank');
-  };
-  const shareToFB = () => {
-    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, '_blank');
-  };
-  const shareToX = () => {
-    window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent('看看我的獨旅行程！')}`, '_blank');
-  };
+  const shareToLine = () => window.open(`https://social-plugins.line.me/lineit/share?url=${encodeURIComponent(shareUrl)}`, '_blank');
+  const shareToFB = () => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`, '_blank');
+  const shareToX = () => window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent('看看我的獨旅行程！')}`, '_blank');
 
   return (
-    <main className="min-h-screen bg-[#0D1117] text-white p-4 md:p-8 flex flex-col items-center">
-      <header className="w-full max-w-xl flex justify-between items-center mb-6 pt-2 border-b border-neutral-800 pb-4">
+    <main className={`min-h-screen transition-colors duration-300 p-4 md:p-8 flex flex-col items-center ${isDarkMode ? 'bg-[#0D1117] text-white' : 'bg-gray-50 text-gray-900'}`}>
+      <header className={`w-full max-w-xl flex justify-between items-center mb-6 pt-2 border-b pb-4 transition-colors duration-300 ${isDarkMode ? 'border-neutral-800' : 'border-gray-200'}`}>
         <div className="flex flex-col items-start">
-          <h1 className="text-xl font-bold flex items-center gap-2 text-white">
+          <h1 className={`text-xl font-bold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
             🧳 獨旅 AI 幫手
           </h1>
-          <p className="text-xs text-neutral-400">@allonetrip.perry 專屬行程規劃</p>
+          <p className={`text-xs ${isDarkMode ? 'text-neutral-400' : 'text-gray-500'}`}>@allonetrip.perry 專屬行程規劃</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -161,72 +171,100 @@ export default function Home() {
             <button
               type="button"
               onClick={handleOpenShareModal}
-              className="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border border-blue-500/30 text-xs font-medium rounded-full transition flex items-center gap-1 shadow-sm active:scale-95"
+              className={`px-3 py-1.5 text-xs font-medium rounded-full transition flex items-center gap-1 shadow-sm active:scale-95 border ${
+                isDarkMode ? 'bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border-blue-500/30' : 'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200'
+              }`}
             >
               🔗 分享行程
             </button>
           )}
+          
+          {/* 📝 習慣按鈕 */}
           <button
             type="button"
             onClick={() => setIsPrefOpen(true)}
-            className="px-3.5 py-1.5 bg-neutral-800/80 hover:bg-neutral-700/80 text-neutral-200 text-xs font-medium rounded-full border border-neutral-700/60 transition flex items-center gap-1.5 shadow-sm active:scale-95"
+            className={`px-3.5 py-1.5 text-xs font-medium rounded-full border transition flex items-center gap-1.5 shadow-sm active:scale-95 ${
+              isDarkMode ? 'bg-neutral-800/80 hover:bg-neutral-700/80 text-neutral-200 border-neutral-700/60' : 'bg-white hover:bg-gray-100 text-gray-700 border-gray-300'
+            }`}
           >
             📝 我的旅行習慣
+          </button>
+          
+          {/* 🌗 亮暗色切換按鈕 */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className={`p-1.5 rounded-full border transition flex items-center justify-center shadow-sm active:scale-95 ${
+              isDarkMode ? 'bg-neutral-800/80 hover:bg-neutral-700/80 text-neutral-200 border-neutral-700/60' : 'bg-white hover:bg-gray-100 text-gray-700 border-gray-300'
+            }`}
+            title={isDarkMode ? '切換至亮色模式' : '切換至暗色模式'}
+          >
+            {isDarkMode ? '☀️' : '🌙'}
           </button>
         </div>
       </header>
 
       <div className="w-full max-w-xl space-y-6">
         {/* 輸入表單卡片 */}
-        <div className="bg-[#161B22] p-5 rounded-2xl border border-neutral-800 shadow-xl space-y-4">
+        <div className={`p-5 rounded-2xl border shadow-xl space-y-4 transition-colors duration-300 ${isDarkMode ? 'bg-[#161B22] border-neutral-800' : 'bg-white border-gray-200 shadow-gray-200/50'}`}>
           <div>
-            <label className="block text-xs font-medium text-neutral-400 mb-1.5">想去哪裡獨旅？</label>
+            <label className={`block text-xs font-medium mb-1.5 ${isDarkMode ? 'text-neutral-400' : 'text-gray-600'}`}>想去哪裡獨旅？</label>
             <input
               type="text"
               placeholder="例如：四國"
               value={destination}
               onChange={(e) => setDestination(e.target.value)}
-              className="w-full bg-[#0D1117] border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-blue-500 transition"
+              className={`w-full rounded-xl px-4 py-2.5 text-sm transition focus:outline-none focus:border-blue-500 border ${
+                isDarkMode ? 'bg-[#0D1117] border-neutral-800 text-white placeholder-neutral-400' : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400'
+              }`}
             />
           </div>
 
           <div className="space-y-1.5">
-            <div className="flex justify-between items-center text-xs text-neutral-400 font-medium">
+            <div className={`flex justify-between items-center text-xs font-medium ${isDarkMode ? 'text-neutral-400' : 'text-gray-600'}`}>
               <span>設定日期區間 📅</span>
-              <span className="text-blue-400 bg-blue-950/60 px-2 py-0.5 rounded-md border border-blue-800/40 font-mono">
+              <span className={`px-2 py-0.5 rounded-md border font-mono ${
+                isDarkMode ? 'text-blue-400 bg-blue-950/60 border-blue-800/40' : 'text-blue-700 bg-blue-50 border-blue-200'
+              }`}>
                 共 {days} 天 ({days} 夜)
               </span>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[10px] text-neutral-500 mb-1">出發日期</label>
+                <label className={`block text-[10px] mb-1 ${isDarkMode ? 'text-neutral-400' : 'text-gray-500'}`}>出發日期</label>
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full bg-[#0D1117] border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+                  className={`w-full rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 border ${
+                    isDarkMode ? 'bg-[#0D1117] border-neutral-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'
+                  }`}
                 />
               </div>
               <div>
-                <label className="block text-[10px] text-neutral-500 mb-1">回程日期</label>
+                <label className={`block text-[10px] mb-1 ${isDarkMode ? 'text-neutral-400' : 'text-gray-500'}`}>回程日期</label>
                 <input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full bg-[#0D1117] border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+                  className={`w-full rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 border ${
+                    isDarkMode ? 'bg-[#0D1117] border-neutral-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'
+                  }`}
                 />
               </div>
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-neutral-400 mb-1.5">獨旅風格偏好 (選填) 🪄</label>
+            <label className={`block text-xs font-medium mb-1.5 ${isDarkMode ? 'text-neutral-400' : 'text-gray-600'}`}>獨旅風格偏好 (選填) 🪄</label>
             <input
               type="text"
               placeholder="例如：慢步調、美食探索、歷史神社"
               value={style}
               onChange={(e) => setStyle(e.target.value)}
-              className="w-full bg-[#0D1117] border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:border-blue-500 transition"
+              className={`w-full rounded-xl px-4 py-2.5 text-sm transition focus:outline-none focus:border-blue-500 border ${
+                isDarkMode ? 'bg-[#0D1117] border-neutral-800 text-white placeholder-neutral-400' : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400'
+              }`}
             />
           </div>
 
@@ -234,18 +272,25 @@ export default function Home() {
             type="button"
             onClick={() => handleSend()}
             disabled={loading || !destination}
-            className="w-full py-3 bg-white text-black hover:bg-neutral-200 disabled:bg-neutral-800 disabled:text-neutral-500 font-bold text-sm rounded-xl transition shadow-lg flex items-center justify-center gap-2 active:scale-[0.99]"
+            className={`w-full py-3 font-bold text-sm rounded-xl transition shadow-lg flex items-center justify-center gap-2 active:scale-[0.99] ${
+              isDarkMode 
+                ? 'bg-white text-black hover:bg-neutral-200 disabled:bg-neutral-800 disabled:text-neutral-400' 
+                : 'bg-gray-900 text-white hover:bg-gray-800 disabled:bg-gray-200 disabled:text-gray-400'
+            }`}
           >
             {loading ? 'Perry 正在為你規劃專屬行程...' : '一起生成專屬行程 ✨'}
           </button>
         </div>
 
-        <div className="bg-[#161B22] p-4 rounded-2xl border border-neutral-800 text-center space-y-2">
-          <p className="text-xs text-neutral-300 font-medium">想要取得更客製化的獨旅規劃嗎？</p>
+        {/* 提示橫幅 */}
+        <div className={`p-4 rounded-2xl border text-center space-y-2 transition-colors duration-300 ${isDarkMode ? 'bg-[#161B22] border-neutral-800' : 'bg-gray-100 border-gray-200'}`}>
+          <p className={`text-xs font-medium ${isDarkMode ? 'text-neutral-300' : 'text-gray-600'}`}>想要取得更客製化的獨旅規劃嗎？</p>
           <button
             type="button"
             onClick={() => setIsPrefOpen(true)}
-            className="px-4 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-xs text-white font-medium rounded-full transition border border-neutral-700"
+            className={`px-4 py-1.5 text-xs font-medium rounded-full transition border ${
+              isDarkMode ? 'bg-neutral-800 hover:bg-neutral-700 text-white border-neutral-700' : 'bg-white hover:bg-gray-50 text-gray-800 border-gray-300 shadow-sm'
+            }`}
           >
             📝 設定我的旅行習慣
           </button>
@@ -253,15 +298,15 @@ export default function Home() {
 
         {/* 對話呈現區域 */}
         {chatHistory.length > 0 && (
-          <div className="bg-[#161B22] border border-neutral-800 rounded-2xl p-5 space-y-4 shadow-xl">
-            <div className="flex justify-between items-center border-b border-neutral-800 pb-3">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+          <div className={`border rounded-2xl p-5 space-y-4 shadow-xl transition-colors duration-300 ${isDarkMode ? 'bg-[#161B22] border-neutral-800' : 'bg-white border-gray-200 shadow-gray-200/50'}`}>
+            <div className={`flex justify-between items-center border-b pb-3 ${isDarkMode ? 'border-neutral-800' : 'border-gray-200'}`}>
+              <h3 className={`text-sm font-bold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 📍 專屬獨旅行程對話
               </h3>
               <button
                 type="button"
                 onClick={handleOpenShareModal}
-                className="text-xs text-blue-400 hover:underline font-medium"
+                className={`text-xs hover:underline font-medium ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}
               >
                 🔗 分享公開連結
               </button>
@@ -273,8 +318,12 @@ export default function Home() {
                   key={idx}
                   className={`p-4 rounded-xl text-xs leading-relaxed ${
                     msg.role === 'user'
-                      ? 'bg-blue-950/60 border border-blue-800/40 text-blue-100 ml-auto max-w-[85%]'
-                      : 'bg-[#0D1117] border border-neutral-800 text-neutral-200'
+                      ? (isDarkMode 
+                          ? 'bg-blue-950/60 border border-blue-800/40 text-blue-100 ml-auto max-w-[85%]' 
+                          : 'bg-blue-500 border border-blue-600 text-white ml-auto max-w-[85%]')
+                      : (isDarkMode 
+                          ? 'bg-[#0D1117] border border-neutral-800 text-neutral-200' 
+                          : 'bg-gray-50 border border-gray-200 text-gray-800')
                   }`}
                 >
                   <div className="whitespace-pre-wrap">{msg.content}</div>
@@ -282,26 +331,32 @@ export default function Home() {
               ))}
 
               {loading && (
-                <div className="p-4 bg-[#0D1117] border border-neutral-800 rounded-xl text-xs text-neutral-400 animate-pulse flex items-center gap-2">
+                <div className={`p-4 border rounded-xl text-xs animate-pulse flex items-center gap-2 ${
+                  isDarkMode ? 'bg-[#0D1117] border-neutral-800 text-neutral-400' : 'bg-gray-50 border-gray-200 text-gray-500'
+                }`}>
                   <span className="inline-block w-2 h-2 bg-blue-500 rounded-full animate-ping"></span>
                   Perry 正在為你梳理階段式骨架與 Google Maps 超連結...
                 </div>
               )}
             </div>
 
-            <div className="flex gap-2 pt-2 border-t border-neutral-800">
+            <div className={`flex gap-2 pt-2 border-t ${isDarkMode ? 'border-neutral-800' : 'border-gray-200'}`}>
               <input
                 type="text"
                 value={inputMsg}
                 onChange={(e) => setInputMsg(e.target.value)}
-                placeholder="問問 Perry... (例如：展開 Day 1-5 的細節，或推薦飯店)"
-                className="flex-1 bg-[#0D1117] border border-neutral-800 rounded-xl px-4 py-2.5 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-blue-500"
+                placeholder="問問 Perry... (例如：展開 Day 1-5 的細節)"
+                className={`flex-1 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-blue-500 border ${
+                  isDarkMode ? 'bg-[#0D1117] border-neutral-800 text-white placeholder-neutral-400' : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400'
+                }`}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
               />
               <button
                 onClick={() => handleSend()}
                 disabled={loading || !inputMsg}
-                className="bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50 text-white px-4 py-2.5 rounded-xl text-xs font-medium transition"
+                className={`px-4 py-2.5 rounded-xl text-xs font-medium transition ${
+                  isDarkMode ? 'bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50 text-white' : 'bg-gray-900 hover:bg-gray-800 disabled:opacity-50 text-white'
+                }`}
               >
                 發送
               </button>
@@ -312,55 +367,63 @@ export default function Home() {
 
       {/* 📝 旅行習慣 Modal */}
       {isPrefOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-[#161B22] border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4 text-left">
-            <div className="flex justify-between items-center border-b border-neutral-800 pb-3">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+        <div className={`fixed inset-0 backdrop-blur-sm flex items-center justify-center p-4 z-50 transition-colors ${isDarkMode ? 'bg-black/80' : 'bg-gray-900/40'}`}>
+          <div className={`border rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4 text-left ${isDarkMode ? 'bg-[#161B22] border-neutral-800' : 'bg-white border-gray-200'}`}>
+            <div className={`flex justify-between items-center border-b pb-3 ${isDarkMode ? 'border-neutral-800' : 'border-gray-200'}`}>
+              <h3 className={`text-sm font-bold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                 📝 我的旅行習慣
               </h3>
-              <button onClick={() => setIsPrefOpen(false)} className="text-neutral-400 hover:text-white p-1 rounded-lg">✕</button>
+              <button onClick={() => setIsPrefOpen(false)} className={`p-1 rounded-lg transition ${isDarkMode ? 'text-neutral-400 hover:text-white' : 'text-gray-400 hover:text-gray-800'}`}>✕</button>
             </div>
 
             <div className="space-y-3.5 text-xs">
               <div>
-                <label className="block text-neutral-300 font-medium mb-1">✈️ 習慣出發地點 / 機場</label>
+                <label className={`block font-medium mb-1 ${isDarkMode ? 'text-neutral-300' : 'text-gray-700'}`}>✈️ 習慣出發地點 / 機場</label>
                 <input
                   type="text"
-                  placeholder="例如：台北 TPE / 高雄 KHH / 台中 RMQ"
+                  placeholder="例如：台北 TPE / 高雄 KHH"
                   value={preferences.departureAirport}
                   onChange={(e) => setPreferences({ ...preferences, departureAirport: e.target.value })}
-                  className="w-full bg-[#0D1117] border border-neutral-800 rounded-lg p-2.5 text-white placeholder-neutral-600 focus:outline-none focus:border-blue-500 transition"
+                  className={`w-full rounded-lg p-2.5 focus:outline-none focus:border-blue-500 transition border ${
+                    isDarkMode ? 'bg-[#0D1117] border-neutral-800 text-white placeholder-neutral-400' : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400'
+                  }`}
                 />
               </div>
 
               <div>
-                <label className="block text-neutral-300 font-medium mb-1">🥗 飲食限制與偏好</label>
+                <label className={`block font-medium mb-1 ${isDarkMode ? 'text-neutral-300' : 'text-gray-700'}`}>🥗 飲食限制與偏好</label>
                 <input
                   type="text"
-                  placeholder="例如：蔬食 / 不吃牛肉 / 偏好在地拉麵小吃"
+                  placeholder="例如：蔬食 / 不吃牛肉"
                   value={preferences.dietary}
                   onChange={(e) => setPreferences({ ...preferences, dietary: e.target.value })}
-                  className="w-full bg-[#0D1117] border border-neutral-800 rounded-lg p-2.5 text-white placeholder-neutral-600 focus:outline-none focus:border-blue-500 transition"
+                  className={`w-full rounded-lg p-2.5 focus:outline-none focus:border-blue-500 transition border ${
+                    isDarkMode ? 'bg-[#0D1117] border-neutral-800 text-white placeholder-neutral-400' : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400'
+                  }`}
                 />
               </div>
 
               <div>
-                <label className="block text-neutral-300 font-medium mb-1">🏨 預算與住宿風格</label>
+                <label className={`block font-medium mb-1 ${isDarkMode ? 'text-neutral-300' : 'text-gray-700'}`}>🏨 預算與住宿風格</label>
                 <input
                   type="text"
-                  placeholder="例如：平價青旅 / CP 值優先 / 需獨立衛浴"
+                  placeholder="例如：平價青旅 / CP 值優先"
                   value={preferences.budget}
                   onChange={(e) => setPreferences({ ...preferences, budget: e.target.value })}
-                  className="w-full bg-[#0D1117] border border-neutral-800 rounded-lg p-2.5 text-white placeholder-neutral-600 focus:outline-none focus:border-blue-500 transition"
+                  className={`w-full rounded-lg p-2.5 focus:outline-none focus:border-blue-500 transition border ${
+                    isDarkMode ? 'bg-[#0D1117] border-neutral-800 text-white placeholder-neutral-400' : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400'
+                  }`}
                 />
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-neutral-800">
-              <button onClick={() => setIsPrefOpen(false)} className="px-3.5 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-lg text-xs">
+            <div className={`flex justify-end gap-2 pt-3 border-t ${isDarkMode ? 'border-neutral-800' : 'border-gray-200'}`}>
+              <button onClick={() => setIsPrefOpen(false)} className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition ${
+                isDarkMode ? 'bg-neutral-800 hover:bg-neutral-700 text-neutral-300' : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-300'
+              }`}>
                 取消
               </button>
-              <button onClick={handleSavePreferences} className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium">
+              <button onClick={handleSavePreferences} className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium shadow-md">
                 儲存習慣
               </button>
             </div>
@@ -368,13 +431,13 @@ export default function Home() {
         </div>
       )}
 
-      {/* 🔗 分享公開連結 Modal (精準對接你的 Screenshot 介面) */}
+      {/* 🔗 分享公開連結 Modal */}
       {isShareModalOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-[#161B22] border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4 text-left">
-            <div className="flex justify-between items-center border-b border-neutral-800 pb-3">
-              <h3 className="text-sm font-bold text-white">可分享的公開連結</h3>
-              <button onClick={() => setIsShareModalOpen(false)} className="text-neutral-400 hover:text-white p-1 rounded-lg">✕</button>
+        <div className={`fixed inset-0 backdrop-blur-sm flex items-center justify-center p-4 z-50 transition-colors ${isDarkMode ? 'bg-black/80' : 'bg-gray-900/40'}`}>
+          <div className={`border rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4 text-left ${isDarkMode ? 'bg-[#161B22] border-neutral-800' : 'bg-white border-gray-200'}`}>
+            <div className={`flex justify-between items-center border-b pb-3 ${isDarkMode ? 'border-neutral-800' : 'border-gray-200'}`}>
+              <h3 className={`text-sm font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>可分享的公開連結</h3>
+              <button onClick={() => setIsShareModalOpen(false)} className={`p-1 rounded-lg transition ${isDarkMode ? 'text-neutral-400 hover:text-white' : 'text-gray-400 hover:text-gray-800'}`}>✕</button>
             </div>
 
             <div className="flex gap-2 items-center">
@@ -382,7 +445,9 @@ export default function Home() {
                 type="text"
                 readOnly
                 value={isSharing ? '⚡ 正在生成超短網址中...' : shareUrl}
-                className="flex-1 bg-[#0D1117] border border-neutral-800 rounded-xl px-3 py-2.5 text-xs text-neutral-300 focus:outline-none"
+                className={`flex-1 rounded-xl px-3 py-2.5 text-xs focus:outline-none border ${
+                  isDarkMode ? 'bg-[#0D1117] border-neutral-800 text-neutral-300' : 'bg-gray-50 border-gray-300 text-gray-800'
+                }`}
               />
               <button
                 disabled={isSharing || !shareUrl}
@@ -390,30 +455,34 @@ export default function Home() {
                   navigator.clipboard.writeText(shareUrl);
                   alert('🎉 專屬超短網址已成功複製！');
                 }}
-                className="px-4 py-2.5 bg-white text-black text-xs font-bold rounded-xl hover:bg-neutral-200 transition disabled:opacity-50"
+                className={`px-4 py-2.5 text-xs font-bold rounded-xl transition disabled:opacity-50 ${
+                  isDarkMode ? 'bg-white text-black hover:bg-neutral-200' : 'bg-gray-900 text-white hover:bg-gray-800'
+                }`}
               >
                 複製
               </button>
             </div>
 
-            <p className="text-[11px] text-neutral-400 flex items-center gap-1">
+            <p className={`text-[11px] flex items-center gap-1 ${isDarkMode ? 'text-neutral-400' : 'text-gray-500'}`}>
               ⓘ 任何人都能透過此短連結快速檢視此獨旅行程。
             </p>
 
-            <div className="flex justify-center gap-6 pt-3 border-t border-neutral-800">
+            <div className={`flex justify-center gap-6 pt-3 border-t ${isDarkMode ? 'border-neutral-800' : 'border-gray-200'}`}>
               <button onClick={shareToLine} className="flex flex-col items-center gap-1 group">
                 <span className="w-10 h-10 rounded-full bg-[#00B900] flex items-center justify-center text-white font-bold text-xs group-hover:scale-105 transition">LINE</span>
-                <span className="text-[10px] text-neutral-400">LINE</span>
+                <span className={`text-[10px] ${isDarkMode ? 'text-neutral-400' : 'text-gray-500'}`}>LINE</span>
               </button>
 
               <button onClick={shareToFB} className="flex flex-col items-center gap-1 group">
                 <span className="w-10 h-10 rounded-full bg-[#1877F2] flex items-center justify-center text-white font-bold text-xs group-hover:scale-105 transition">FB</span>
-                <span className="text-[10px] text-neutral-400">Facebook</span>
+                <span className={`text-[10px] ${isDarkMode ? 'text-neutral-400' : 'text-gray-500'}`}>Facebook</span>
               </button>
 
               <button onClick={shareToX} className="flex flex-col items-center gap-1 group">
-                <span className="w-10 h-10 rounded-full bg-black border border-neutral-700 flex items-center justify-center text-white font-bold text-xs group-hover:scale-105 transition">X</span>
-                <span className="text-[10px] text-neutral-400">X</span>
+                <span className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-xs group-hover:scale-105 transition border ${
+                  isDarkMode ? 'bg-black border-neutral-700' : 'bg-black border-gray-800'
+                }`}>X</span>
+                <span className={`text-[10px] ${isDarkMode ? 'text-neutral-400' : 'text-gray-500'}`}>X</span>
               </button>
             </div>
           </div>
