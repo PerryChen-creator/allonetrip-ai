@@ -3,22 +3,26 @@
 import { useState, useEffect } from 'react';
 
 export default function Home() {
+  // 取得今天日期的 YYYY-MM-DD 格式，用於日期選擇器的 min 限制
+  const todayStr = new Date().toISOString().split('T')[0];
+
   // 1. 表單與對話狀態
   const [destination, setDestination] = useState('');
-  const [days, setDays] = useState('7');
-  const [startDate, setStartDate] = useState('2026-08-01');
-  const [endDate, setEndDate] = useState('2026-11-27');
+  const [days, setDays] = useState('1');
+  const [startDate, setStartDate] = useState(todayStr);
+  const [endDate, setEndDate] = useState(todayStr);
   const [style, setStyle] = useState('');
   const [loading, setLoading] = useState(false);
   const [chatHistory, setChatHistory] = useState<any[]>([]);
   const [inputMsg, setInputMsg] = useState('');
 
-  // 2. 個人化旅行習慣 Modal 狀態
+  // 2. 個人化旅行習慣 Modal 狀態 (新增 customNotes 欄位)
   const [isPrefOpen, setIsPrefOpen] = useState(false);
   const [preferences, setPreferences] = useState({
     departureAirport: '',
     dietary: '',
     budget: '',
+    customNotes: '',
   });
 
   // 3. 分享彈窗 Modal 狀態
@@ -40,7 +44,6 @@ export default function Home() {
       }
     }
     
-    // 讀取主題記憶
     const savedTheme = localStorage.getItem('theme_mode');
     if (savedTheme === 'light') {
       setIsDarkMode(false);
@@ -54,7 +57,7 @@ export default function Home() {
     localStorage.setItem('theme_mode', newMode ? 'dark' : 'light');
   };
 
-  // 計算天數
+  // 自動計算天數
   useEffect(() => {
     if (startDate && endDate) {
       const start = new Date(startDate);
@@ -70,7 +73,7 @@ export default function Home() {
   const handleSavePreferences = () => {
     localStorage.setItem('user_preferences', JSON.stringify(preferences));
     setIsPrefOpen(false);
-    alert('✅ 旅行習慣已成功儲存！Perry 未來生成行程時會自動考慮這些設定！');
+    alert('✅ 旅行習慣與備註已儲存！Perry 會為你打造專屬的深度行程！');
   };
 
   const handleSend = async (customText?: string) => {
@@ -163,7 +166,17 @@ export default function Home() {
           <h1 className={`text-xl font-bold flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
             🧳 獨旅 AI 幫手
           </h1>
-          <p className={`text-xs ${isDarkMode ? 'text-neutral-400' : 'text-gray-500'}`}>@allonetrip.perry 專屬行程規劃</p>
+          {/* 🟢 1. 恢復 IG 連結 */}
+          <p className={`text-xs ${isDarkMode ? 'text-neutral-400' : 'text-gray-500'}`}>
+            <a 
+              href="https://www.instagram.com/allonetrip.perry" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="hover:underline hover:text-blue-400 transition"
+            >
+              @allonetrip.perry
+            </a> 專屬行程規劃
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -179,7 +192,6 @@ export default function Home() {
             </button>
           )}
           
-          {/* 📝 習慣按鈕 */}
           <button
             type="button"
             onClick={() => setIsPrefOpen(true)}
@@ -190,7 +202,6 @@ export default function Home() {
             📝 我的旅行習慣
           </button>
           
-          {/* 🌗 亮暗色切換按鈕 */}
           <button
             type="button"
             onClick={toggleTheme}
@@ -229,13 +240,19 @@ export default function Home() {
                 共 {days} 天 ({days} 夜)
               </span>
             </div>
+            {/* 🟢 2. 設定 min={todayStr} 禁止選過去的日期 */}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={`block text-[10px] mb-1 ${isDarkMode ? 'text-neutral-400' : 'text-gray-500'}`}>出發日期</label>
                 <input
                   type="date"
+                  min={todayStr}
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={(e) => {
+                    const newStart = e.target.value;
+                    setStartDate(newStart);
+                    if (newStart > endDate) setEndDate(newStart);
+                  }}
                   className={`w-full rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 border ${
                     isDarkMode ? 'bg-[#0D1117] border-neutral-800 text-white' : 'bg-gray-50 border-gray-300 text-gray-900'
                   }`}
@@ -245,6 +262,7 @@ export default function Home() {
                 <label className={`block text-[10px] mb-1 ${isDarkMode ? 'text-neutral-400' : 'text-gray-500'}`}>回程日期</label>
                 <input
                   type="date"
+                  min={startDate || todayStr}
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                   className={`w-full rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 border ${
@@ -365,7 +383,7 @@ export default function Home() {
         )}
       </div>
 
-      {/* 📝 旅行習慣 Modal */}
+      {/* 🟢 3. 📝 旅行習慣 Modal (含新補充欄位 + 移除按鈕上方 divider) */}
       {isPrefOpen && (
         <div className={`fixed inset-0 backdrop-blur-sm flex items-center justify-center p-4 z-50 transition-colors ${isDarkMode ? 'bg-black/80' : 'bg-gray-900/40'}`}>
           <div className={`border rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4 text-left ${isDarkMode ? 'bg-[#161B22] border-neutral-800' : 'bg-white border-gray-200'}`}>
@@ -415,9 +433,24 @@ export default function Home() {
                   }`}
                 />
               </div>
+
+              {/* 💡 新增的補充備註欄位 */}
+              <div>
+                <label className={`block font-medium mb-1 ${isDarkMode ? 'text-neutral-300' : 'text-gray-700'}`}>💡 補充說明 / 其他個人需求</label>
+                <textarea
+                  rows={2}
+                  placeholder="例如：喜歡拍攝底片相機、腳程較慢需要行程鬆一點、晚上想去爵士酒吧..."
+                  value={preferences.customNotes}
+                  onChange={(e) => setPreferences({ ...preferences, customNotes: e.target.value })}
+                  className={`w-full rounded-lg p-2.5 focus:outline-none focus:border-blue-500 transition border ${
+                    isDarkMode ? 'bg-[#0D1117] border-neutral-800 text-white placeholder-neutral-400' : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400'
+                  }`}
+                />
+              </div>
             </div>
 
-            <div className={`flex justify-end gap-2 pt-3 border-t ${isDarkMode ? 'border-neutral-800' : 'border-gray-200'}`}>
+            {/* 🟢 移除 border-t 頂部分隔線 */}
+            <div className="flex justify-end gap-2 pt-2">
               <button onClick={() => setIsPrefOpen(false)} className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition ${
                 isDarkMode ? 'bg-neutral-800 hover:bg-neutral-700 text-neutral-300' : 'bg-white hover:bg-gray-50 text-gray-700 border border-gray-300'
               }`}>
