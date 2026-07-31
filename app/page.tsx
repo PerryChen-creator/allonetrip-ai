@@ -13,7 +13,7 @@ export default function Home() {
   const [chatHistory, setChatHistory] = useState<any[]>([]);
   const [inputMsg, setInputMsg] = useState('');
 
-  // 2. 個人化偏好記憶庫 State
+  // 2. 個人化旅行習慣 State
   const [isPrefOpen, setIsPrefOpen] = useState(false);
   const [preferences, setPreferences] = useState({
     departureAirport: '',
@@ -21,7 +21,7 @@ export default function Home() {
     budget: '',
   });
 
-  // 元件載入時，自動從 localStorage 讀取個人偏好
+  // 元件載入時，自動從 localStorage 讀取個人習慣
   useEffect(() => {
     const saved = localStorage.getItem('user_preferences');
     if (saved) {
@@ -46,11 +46,11 @@ export default function Home() {
     }
   }, [startDate, endDate]);
 
-  // 儲存個人偏好到 localStorage
+  // 儲存個人習慣到 localStorage
   const handleSavePreferences = () => {
     localStorage.setItem('user_preferences', JSON.stringify(preferences));
     setIsPrefOpen(false);
-    alert('✅ 個人獨旅偏好已成功儲存！Perry 未來生成行程時會自動考慮這些設定！');
+    alert('✅ 旅行習慣已成功儲存！Perry 未來生成行程時會自動考慮這些設定！');
   };
 
   // 發送請求給 AI Agent
@@ -81,7 +81,7 @@ export default function Home() {
           endDate,
           style,
           messages: newHistory,
-          userPreferences: savedPref, // 🟢 自動注入偏好記憶
+          userPreferences: savedPref, // 🟢 自動注入旅行習慣
         }),
       });
 
@@ -100,7 +100,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-[#0D1117] text-white p-4 md:p-8 flex flex-col items-center">
-      {/* 頂部 Header：左側標題 + 右側偏好記憶庫按鈕 */}
+      {/* 頂部 Header：左側標題 + 右側「我的旅行習慣」按鈕 */}
       <header className="w-full max-w-xl flex justify-between items-center mb-6 pt-2 border-b border-neutral-800 pb-4">
         <div className="flex flex-col items-start">
           <h1 className="text-xl font-bold flex items-center gap-2 text-white">
@@ -115,7 +115,7 @@ export default function Home() {
           onClick={() => setIsPrefOpen(true)}
           className="px-3.5 py-1.5 bg-neutral-800/80 hover:bg-neutral-700/80 text-neutral-200 text-xs font-medium rounded-full border border-neutral-700/60 transition flex items-center gap-1.5 shadow-sm active:scale-95"
         >
-          ⚙️ 偏好記憶庫
+          📝 我的旅行習慣
         </button>
       </header>
 
@@ -186,7 +186,7 @@ export default function Home() {
           </button>
         </div>
 
-        {/* 客製化聯繫與偏好引導卡片 */}
+        {/* 客製化聯繫與習慣引導卡片 */}
         <div className="bg-[#161B22] p-4 rounded-2xl border border-neutral-800 text-center space-y-2">
           <p className="text-xs text-neutral-300 font-medium">想要取得更客製化的獨旅規劃嗎？</p>
           <button
@@ -194,7 +194,7 @@ export default function Home() {
             onClick={() => setIsPrefOpen(true)}
             className="px-4 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-xs text-white font-medium rounded-full transition border border-neutral-700"
           >
-            ⚙️ 設定偏好記憶庫
+            📝 設定我的旅行習慣
           </button>
         </div>
 
@@ -249,13 +249,13 @@ export default function Home() {
         )}
       </div>
 
-      {/* ⚙️ 偏好設定 Modal 彈窗 */}
+      {/* 📝 旅行習慣 Modal 彈窗 */}
       {isPrefOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-[#161B22] border border-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4 text-left">
             <div className="flex justify-between items-center border-b border-neutral-800 pb-3">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                ⚙️ 個人獨旅偏好記憶
+                📝 我的旅行習慣
               </h3>
               <button
                 onClick={() => setIsPrefOpen(false)}
@@ -311,7 +311,7 @@ export default function Home() {
                 onClick={handleSavePreferences}
                 className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium transition shadow-md"
               >
-                儲存偏好
+                儲存習慣
               </button>
             </div>
           </div>
