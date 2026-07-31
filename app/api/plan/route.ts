@@ -46,11 +46,11 @@ ${prefText}
         'X-Title': 'AllOneTrip AI',
       },
       body: JSON.stringify({
-        // 🟢 使用 OpenRouter 官方長期驗證且穩定的 3 個免費模型
+        // 🟢 換成 OpenRouter 目前確切有提供免費額度的 3 個優質 AI 模型
         models: [
-          'meta-llama/llama-3.3-70b-instruct:free',
           'deepseek/deepseek-r1:free',
-          'qwen/qwen-2.5-7b-instruct:free'
+          'meta-llama/llama-3.1-8b-instruct:free',
+          'mistralai/mistral-7b-instruct:free'
         ],
         messages: apiMessages,
       }),
