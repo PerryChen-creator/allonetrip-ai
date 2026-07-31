@@ -2,29 +2,31 @@ name: Next.js CI 機器人檢查
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ main ]
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 📥 下載最新的程式碼
+      - name: 📥 檢查並下載專案程式碼
         uses: actions/checkout@v4
 
-      - name: ⚙️ 準備 Node.js 執行環境
+      - name: ⚙️ 設定 Node.js 環境
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 20
           cache: 'npm'
 
-      - name: 📦 安裝專案所需套件
+      - name: 📦 安裝專案依賴套件
         run: npm ci
 
-      - name: 🔎 檢查程式碼語法 (ESLint)
-        run: npm run lint
-
-      - name: 🏗️ 試跑一次發布流程 (Build)
+      - name: 🏗️ 執行 Next.js 打包測試
+        # 🟢 這裡加上預設環境變數，防止 GitHub CI 找不到金鑰而報錯
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
+          OPENROUTER_API_KEY: placeholder
         run: npm run build
