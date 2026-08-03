@@ -35,7 +35,7 @@ function parseInlineMarkdown(text: string) {
   });
 }
 
-// 高階 Markdown 渲染組件 (支援完整表格、標題、清單與內聯連結)
+// 高階 Markdown 渲染組件 (支援表格、標題、清單與內聯連結)
 function MarkdownMessage({ content }: { content: string }) {
   const lines = content.split('\n');
   const elements: React.ReactNode[] = [];
@@ -44,13 +44,11 @@ function MarkdownMessage({ content }: { content: string }) {
   const flushTable = (keyIndex: number) => {
     if (tableRows.length === 0) return;
 
-    // 解析表格
     const parsedRows = tableRows.map(row => 
       row.split('|').map(cell => cell.trim()).filter((_, idx, arr) => idx > 0 && idx < arr.length - 1)
     );
 
     const header = parsedRows[0] || [];
-    // 過濾掉 |---|---| 對齊分隔列
     const dataRows = parsedRows.slice(1).filter(row => !row.every(cell => /^:?-+:?$/.test(cell)));
 
     elements.push(
@@ -86,7 +84,6 @@ function MarkdownMessage({ content }: { content: string }) {
   lines.forEach((line, idx) => {
     const trimmed = line.trim();
 
-    // 判斷表格列
     if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
       tableRows.push(trimmed);
       return;
@@ -99,7 +96,6 @@ function MarkdownMessage({ content }: { content: string }) {
       return;
     }
 
-    // 標題處理
     if (trimmed.startsWith('## ')) {
       elements.push(
         <h2 key={idx} className="text-base font-bold text-slate-900 dark:text-white mt-4 mb-2">
@@ -109,7 +105,6 @@ function MarkdownMessage({ content }: { content: string }) {
       return;
     }
 
-    // 列表點處理
     const isListItem = trimmed.startsWith('* ') || trimmed.startsWith('- ') || /^\d+\.\s/.test(trimmed);
     if (isListItem) {
       const cleanText = trimmed.replace(/^([\*\-]\s+|\d+\.\s+)/, '');
@@ -139,7 +134,6 @@ function MarkdownMessage({ content }: { content: string }) {
 export default function Home() {
   const [darkMode, setDarkMode] = useState(false);
 
-  // 旅行習慣 Modal
   const [isPrefModalOpen, setIsPrefModalOpen] = useState(false);
   const [userPreferences, setUserPreferences] = useState({
     departureAirport: '台北桃園 TPE',
@@ -175,7 +169,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const chatHeaderRef = useRef<HTMLDivElement>(null); // 自動捲動 Reference
+  const chatHeaderRef = useRef<HTMLDivElement>(null);
   const [todayStr, setTodayStr] = useState('');
 
   useEffect(() => {
@@ -186,7 +180,6 @@ export default function Home() {
     setTodayStr(`${year}-${month}-${day}`);
   }, []);
 
-  // 當 AI 完成回傳後，自動平滑滑動至對話最上方
   useEffect(() => {
     if (messages.length > 0 && messages[messages.length - 1].role === 'assistant') {
       chatHeaderRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -324,10 +317,7 @@ export default function Home() {
 
         {/* 主內容區 */}
         <div className="flex-1 max-w-3xl mx-auto p-4 md:p-8 space-y-6">
-          
-          {/* 表單區塊 (Light mode 純白 bg-white，WCAG 高對比) */}
           <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 space-y-4">
-            
             <div>
               <label className="block text-sm font-bold text-slate-900 dark:text-slate-100 mb-1">
                 想去哪裡獨旅？
@@ -420,13 +410,11 @@ export default function Home() {
           {(messages.length > 0 || loading) && (
             <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 space-y-4">
               
-              {/* 自動捲動定位錨點 & 頂部雙 CTA */}
               <div ref={chatHeaderRef} className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3 sticky top-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm z-10">
                 <span className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                   📍 專屬獨旅行程對話
                 </span>
                 
-                {/* 雙 CTA 按鈕區 */}
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleShare}
@@ -510,12 +498,18 @@ export default function Home() {
                     📎
                   </button>
 
+                  {/* 🟢 核心修復：防止注音/拼音選字 Enter 誤發送 */}
                   <input
                     type="text"
                     placeholder="問問 Perry...（例如：展開 Day 1-5 的細節，或附圖詢問）"
                     value={inputQuery}
                     onChange={(e) => setInputQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleGenerate(inputQuery)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                        e.preventDefault();
+                        handleGenerate(inputQuery);
+                      }
+                    }}
                     className="flex-1 px-4 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-medium text-slate-900 dark:text-white bg-white dark:bg-slate-800 placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:ring-2 focus:ring-slate-800 outline-none"
                   />
 
@@ -534,7 +528,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 「設定我的旅行習慣」 Modal 彈窗 */}
+      {/* Modal 彈窗 */}
       {isPrefModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">

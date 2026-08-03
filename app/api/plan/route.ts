@@ -65,7 +65,15 @@ ${prefText}
         const modelsData = await modelsRes.json();
         candidateModels = (modelsData.data || [])
           .filter((m: any) => m.id && m.id.endsWith(':free'))
-          .map((m: any) => m.id);
+          .map((m: any) => m.id)
+          // 🟢 核心修復：剔除 guard, moderation, embed 等非對話稽核模型
+          .filter((id: string) => {
+            const lower = id.toLowerCase();
+            return !lower.includes('guard') &&
+                   !lower.includes('moderation') &&
+                   !lower.includes('embed') &&
+                   !lower.includes('eval');
+          });
       }
     } catch (e) {
       console.warn('動態獲取模型失敗:', e);
@@ -97,7 +105,8 @@ ${prefText}
         if (res.ok) {
           const data = await res.json();
           reply = data.choices?.[0]?.message?.content || '';
-          if (reply) break;
+          // 排除只印出安全警示語句的回應
+          if (reply && !reply.includes('User Safety: safe')) break;
         } else {
           lastErrorMsg = await res.text();
         }
