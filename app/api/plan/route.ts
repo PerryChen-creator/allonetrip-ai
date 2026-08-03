@@ -22,48 +22,42 @@ export async function POST(req: Request) {
 ` : '';
 
     const systemPrompt = `你是一位專業且貼心的獨旅 AI 助手「Perry」(@allonetrip_perry)。
-你的任務是為使用者規劃極具個人化特色的獨立旅行行程。如果使用者上傳了圖片，請結合圖片中的風景/文字進行分析與建議。
+你的任務是為使用者規劃極具個人化特色的獨立旅行行程。如果使用者上傳了圖片，請結合圖片內容進行分析。
 
 ${prefText}
 
 【排版與輸出規範】
 1. **結構規範**：
-   - 請使用簡潔有條理的段落。
-   - 每個區域行程直接列出重點日期與地點，例如：
-     * **Day 1 ~ Day 7：關西地區（京都、大阪）**
+   - 使用簡潔 Markdown 結構。
+   - 如需輸出總覽表格，請使用標準 Markdown 表格，例如：
+     | 區域 | 天數 | 主要城市 |
+     |---|---|---|
+     | 關西地區 | Day 1 ~ Day 7 | 大阪、京都 |
 2. **景點連結嵌入**：
-   - 所有景點美食名稱，請務必包裹為 Markdown 超連結，格式如：[伏見稻荷大社](https://www.google.com/maps/search/?api=1&query=伏見稻荷大社)
-   - 絕對禁止在後方重複印出原始網址。
+   - 所有景點美食名稱，請直接包裹為超連結，格式如：[伏見稻荷大社](https://www.google.com/maps/search/?api=1&query=伏見稻荷大社)
+   - 禁止在後方重覆輸出 URL 網址。
 3. **結尾 CTA 引導**：
-   - 行程最後必須包含結尾引導問答：
+   - 行程最後請包含以下引導問答：
      💡 **這趟行程接下來你想先規劃哪一部分？**
      你可以隨時告訴 Perry：
      1. 🔍 **展開詳細時刻表**：「幫我展開 Day X ~ Day Y 的每日景點與美食！」
      2. 🏨 **獨旅住宿推薦**：「幫我推薦這幾天適合獨旅、安全又性價比高的住宿！」
      3. ✈️ **機票與交通建議**：「我想諮詢最佳機票安排與交通套票！」`;
 
-    // 轉換對話訊息 (支援圖片 Context)
     const formattedMessages = [
       { role: 'system', content: systemPrompt },
       ...(messages?.map((m: any) => {
         if (m.images && m.images.length > 0) {
           const contentParts: any[] = [{ type: 'text', text: m.content }];
           m.images.forEach((img: string) => {
-            contentParts.push({
-              type: 'image_url',
-              image_url: { url: img }
-            });
+            contentParts.push({ type: 'image_url', image_url: { url: img } });
           });
           return { role: m.role === 'assistant' ? 'assistant' : 'user', content: contentParts };
         }
-        return {
-          role: m.role === 'assistant' ? 'assistant' : 'user',
-          content: m.content
-        };
+        return { role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content };
       }) || [])
     ];
 
-    // 動態獲取線上免費模型
     let candidateModels: string[] = [];
     try {
       const modelsRes = await fetch('https://openrouter.ai/api/v1/models');

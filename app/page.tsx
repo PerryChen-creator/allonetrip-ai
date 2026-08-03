@@ -2,46 +2,14 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 
-// 自訂簡易 Markdown 渲染組件
-function MarkdownMessage({ content }: { content: string }) {
-  const lines = content.split('\n');
-
-  return (
-    <div className="space-y-2 leading-relaxed">
-      {lines.map((line, idx) => {
-        let trimmed = line.trim();
-        if (!trimmed) return <div key={idx} className="h-2" />;
-
-        const isListItem = trimmed.startsWith('* ') || trimmed.startsWith('- ');
-        if (isListItem) {
-          trimmed = trimmed.replace(/^[\*\-]\s+/, '');
-        }
-
-        const parts = parseMarkdownText(trimmed);
-
-        if (isListItem) {
-          return (
-            <div key={idx} className="flex items-start space-x-2 pl-2">
-              <span className="text-blue-600 font-bold">•</span>
-              <div>{parts}</div>
-            </div>
-          );
-        }
-
-        return <div key={idx}>{parts}</div>;
-      })}
-    </div>
-  );
-}
-
-// 輔助函式：解析 [文字](URL) 與 **粗體**
-function parseMarkdownText(text: string) {
+// 輔助函式：解析文字中的 [連結](URL) 與 **粗體**
+function parseInlineMarkdown(text: string) {
   const regex = /(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g;
   const parts = text.split(regex);
 
   return parts.map((part, index) => {
     if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={index} className="font-bold">{part.slice(2, -2)}</strong>;
+      return <strong key={index} className="font-bold text-slate-900 dark:text-white">{part.slice(2, -2)}</strong>;
     }
     if (part.startsWith('[') && part.includes('](') && part.endsWith(')')) {
       const match = part.match(/\[([^\]]+)\]\(([^)]+)\)/);
@@ -67,10 +35,111 @@ function parseMarkdownText(text: string) {
   });
 }
 
+// 高階 Markdown 渲染組件 (支援完整表格、標題、清單與內聯連結)
+function MarkdownMessage({ content }: { content: string }) {
+  const lines = content.split('\n');
+  const elements: React.ReactNode[] = [];
+  let tableRows: string[] = [];
+
+  const flushTable = (keyIndex: number) => {
+    if (tableRows.length === 0) return;
+
+    // 解析表格
+    const parsedRows = tableRows.map(row => 
+      row.split('|').map(cell => cell.trim()).filter((_, idx, arr) => idx > 0 && idx < arr.length - 1)
+    );
+
+    const header = parsedRows[0] || [];
+    // 過濾掉 |---|---| 對齊分隔列
+    const dataRows = parsedRows.slice(1).filter(row => !row.every(cell => /^:?-+:?$/.test(cell)));
+
+    elements.push(
+      <div key={`table-${keyIndex}`} className="overflow-x-auto my-4 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm">
+        <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 text-sm">
+          <thead className="bg-slate-100 dark:bg-slate-800">
+            <tr>
+              {header.map((col, idx) => (
+                <th key={idx} className="px-4 py-2.5 text-left font-bold text-slate-900 dark:text-white border-r border-slate-200 dark:border-slate-700 last:border-r-0">
+                  {parseInlineMarkdown(col)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="bg-white dark:bg-slate-900 divide-y divide-slate-200 dark:divide-slate-800">
+            {dataRows.map((row, rIdx) => (
+              <tr key={rIdx} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+                {row.map((cell, cIdx) => (
+                  <td key={cIdx} className="px-4 py-2 text-slate-800 dark:text-slate-200 border-r border-slate-200 dark:border-slate-700 last:border-r-0">
+                    {parseInlineMarkdown(cell)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+
+    tableRows = [];
+  };
+
+  lines.forEach((line, idx) => {
+    const trimmed = line.trim();
+
+    // 判斷表格列
+    if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+      tableRows.push(trimmed);
+      return;
+    } else if (tableRows.length > 0) {
+      flushTable(idx);
+    }
+
+    if (!trimmed) {
+      elements.push(<div key={idx} className="h-2" />);
+      return;
+    }
+
+    // 標題處理
+    if (trimmed.startsWith('## ')) {
+      elements.push(
+        <h2 key={idx} className="text-base font-bold text-slate-900 dark:text-white mt-4 mb-2">
+          {parseInlineMarkdown(trimmed.replace('## ', ''))}
+        </h2>
+      );
+      return;
+    }
+
+    // 列表點處理
+    const isListItem = trimmed.startsWith('* ') || trimmed.startsWith('- ') || /^\d+\.\s/.test(trimmed);
+    if (isListItem) {
+      const cleanText = trimmed.replace(/^([\*\-]\s+|\d+\.\s+)/, '');
+      elements.push(
+        <div key={idx} className="flex items-start space-x-2 pl-2 my-1">
+          <span className="text-blue-600 font-bold">•</span>
+          <div className="text-slate-800 dark:text-slate-200">{parseInlineMarkdown(cleanText)}</div>
+        </div>
+      );
+      return;
+    }
+
+    elements.push(
+      <p key={idx} className="text-slate-800 dark:text-slate-200 my-1">
+        {parseInlineMarkdown(trimmed)}
+      </p>
+    );
+  });
+
+  if (tableRows.length > 0) {
+    flushTable(lines.length);
+  }
+
+  return <div className="space-y-1">{elements}</div>;
+}
+
 export default function Home() {
   const [darkMode, setDarkMode] = useState(false);
 
-  // 旅行習慣 Modal 狀態與 LocalStorage 載入
+  // 旅行習慣 Modal
   const [isPrefModalOpen, setIsPrefModalOpen] = useState(false);
   const [userPreferences, setUserPreferences] = useState({
     departureAirport: '台北桃園 TPE',
@@ -106,6 +175,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const chatHeaderRef = useRef<HTMLDivElement>(null); // 自動捲動 Reference
   const [todayStr, setTodayStr] = useState('');
 
   useEffect(() => {
@@ -115,6 +185,13 @@ export default function Home() {
     const day = String(today.getDate()).padStart(2, '0');
     setTodayStr(`${year}-${month}-${day}`);
   }, []);
+
+  // 當 AI 完成回傳後，自動平滑滑動至對話最上方
+  useEffect(() => {
+    if (messages.length > 0 && messages[messages.length - 1].role === 'assistant') {
+      chatHeaderRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [messages]);
 
   const getDaysCount = () => {
     if (!startDate || !endDate) return null;
@@ -149,6 +226,13 @@ export default function Home() {
 
   const removeImage = (index: number) => {
     setSelectedImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleShare = () => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(window.location.href);
+      alert('已複製行程連結至剪貼簿！');
+    }
   };
 
   const handleGenerate = async (queryText?: string) => {
@@ -209,7 +293,6 @@ export default function Home() {
               🧳 獨旅 AI 幫手
             </h1>
             
-            {/* 🔴 問題 3 修改：另開 IG 連結 */}
             <a
               href="https://www.instagram.com/allonetrip_perry/"
               target="_blank"
@@ -242,7 +325,7 @@ export default function Home() {
         {/* 主內容區 */}
         <div className="flex-1 max-w-3xl mx-auto p-4 md:p-8 space-y-6">
           
-          {/* 🔴 問題 2 修改：Light Mode 純白卡片、Dark Mode 深藍卡片 */}
+          {/* 表單區塊 (Light mode 純白 bg-white，WCAG 高對比) */}
           <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 space-y-4">
             
             <div>
@@ -250,13 +333,12 @@ export default function Home() {
                 想去哪裡獨旅？
               </label>
               
-              {/* 🔴 問題 1 修改：還原 Placeholder 原本的文案 */}
               <input
                 type="text"
                 placeholder="例如：日本環島、北歐極光之旅"
                 value={destination}
                 onChange={(e) => setDestination(e.target.value)}
-                className="w-full px-4 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white bg-white dark:bg-slate-800 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-slate-800 outline-none text-sm font-medium transition"
+                className="w-full px-4 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white bg-white dark:bg-slate-800 placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:ring-2 focus:ring-slate-800 outline-none text-sm font-medium transition"
               />
             </div>
 
@@ -272,7 +354,6 @@ export default function Home() {
                 )}
               </div>
               
-              {/* 🔴 問題 4 修改：加上 style colorScheme，解決月曆 Icon 高對比度問題 */}
               <div className="grid grid-cols-2 gap-3">
                 <input
                   type="date"
@@ -302,7 +383,7 @@ export default function Home() {
                 placeholder="例如：探索登山、夜生活，或貼上連結"
                 value={style}
                 onChange={(e) => setStyle(e.target.value)}
-                className="w-full px-4 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white bg-white dark:bg-slate-800 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-slate-800 outline-none text-sm font-medium transition"
+                className="w-full px-4 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white bg-white dark:bg-slate-800 placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:ring-2 focus:ring-slate-800 outline-none text-sm font-medium transition"
               />
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
                 可輸入旅遊喜好，或貼上 IG / YouTube 公開景點圖片或影片連結
@@ -322,7 +403,7 @@ export default function Home() {
             </button>
           </div>
 
-          {/* 🔴 問題 3 修改：與我聯繫按鈕另開 IG 頁面 */}
+          {/* 橫幅客製化區塊 */}
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 flex flex-col items-center justify-center space-y-4">
             <p className="text-sm font-bold text-slate-800 dark:text-slate-200">想要來場更客製化的旅程規劃嗎？</p>
             <a
@@ -338,15 +419,33 @@ export default function Home() {
           {/* 對話區塊 */}
           {(messages.length > 0 || loading) && (
             <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 space-y-4">
-              <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3">
+              
+              {/* 自動捲動定位錨點 & 頂部雙 CTA */}
+              <div ref={chatHeaderRef} className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3 sticky top-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm z-10">
                 <span className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                   📍 專屬獨旅行程對話
                 </span>
-                <button className="text-sm font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition flex items-center gap-1">
-                  🔗 分享行程
-                </button>
+                
+                {/* 雙 CTA 按鈕區 */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleShare}
+                    className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-lg transition border border-slate-200 dark:border-slate-700 flex items-center gap-1"
+                  >
+                    🔗 分享行程
+                  </button>
+                  <a
+                    href="https://www.instagram.com/allonetrip_perry/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 bg-pink-50 dark:bg-pink-950/40 hover:bg-pink-100 dark:hover:bg-pink-900/50 text-pink-600 dark:text-pink-300 text-xs font-bold rounded-lg transition border border-pink-200 dark:border-pink-800 flex items-center gap-1"
+                  >
+                    💼 與我聯繫
+                  </a>
+                </div>
               </div>
 
+              {/* 訊息列表 */}
               <div className="space-y-4">
                 {messages.map((m, i) => (
                   <div key={i} className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
@@ -357,7 +456,7 @@ export default function Home() {
                         ))}
                       </div>
                     )}
-                    <div className={`p-4 rounded-2xl max-w-[90%] text-sm ${
+                    <div className={`p-4 rounded-2xl max-w-[95%] text-sm ${
                       m.role === 'user'
                         ? 'bg-blue-600 text-white font-medium'
                         : 'bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-slate-900 dark:text-slate-100'
@@ -417,7 +516,7 @@ export default function Home() {
                     value={inputQuery}
                     onChange={(e) => setInputQuery(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleGenerate(inputQuery)}
-                    className="flex-1 px-4 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-medium text-slate-900 dark:text-white bg-white dark:bg-slate-800 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-slate-800 outline-none"
+                    className="flex-1 px-4 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-medium text-slate-900 dark:text-white bg-white dark:bg-slate-800 placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:ring-2 focus:ring-slate-800 outline-none"
                   />
 
                   <button
