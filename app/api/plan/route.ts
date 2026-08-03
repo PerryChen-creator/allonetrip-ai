@@ -40,16 +40,16 @@ ${prefText}
       })) || [])
     ];
 
-    // 🟢 獨立容錯模型清單：優先調用 Gemini 2.0 Flash Lite，失敗自動無縫切換
+    // 目前 OpenRouter 完全免費且運作中的模型清單
     const candidateModels = [
       'google/gemini-2.0-flash-lite-001:free',
-      'qwen/qwen-2.5-72b-instruct:free',
-      'meta-llama/llama-3.1-8b-instruct:free',
-      'mistralai/mistral-small-24b-instruct-2501:free'
+      'google/gemini-2.0-pro-exp-02-05:free',
+      'meta-llama/llama-3.2-11b-vision-instruct:free',
+      'qwen/qwen-2.5-coder-32b-instruct:free'
     ];
 
     let reply = '';
-    let lastError = '';
+    let lastErrorMsg = '';
 
     for (const model of candidateModels) {
       try {
@@ -72,19 +72,25 @@ ${prefText}
           const content = data.choices?.[0]?.message?.content;
           if (content) {
             reply = content;
-            break; // 成功取得回應即刻跳出迴圈
+            break;
           }
         } else {
-          lastError = await res.text();
+          const errText = await res.text();
+          try {
+            const errObj = JSON.parse(errText);
+            lastErrorMsg = errObj.error?.message || errText;
+          } catch {
+            lastErrorMsg = errText;
+          }
         }
       } catch (err: any) {
-        lastError = err.message || String(err);
+        lastErrorMsg = err.message || String(err);
       }
     }
 
     if (!reply) {
       return NextResponse.json(
-        { error: `AI 服務暫時無法回應，請稍後再試。(${lastError})` },
+        { error: `AI 免費通道繁忙，請稍後重試。(${lastErrorMsg})` },
         { status: 500 }
       );
     }
