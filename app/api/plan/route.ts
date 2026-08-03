@@ -40,11 +40,12 @@ ${prefText}
       })) || [])
     ];
 
-    // OpenRouter 穩定可用免費模型清單
+    // 🟢 OpenRouter 現行最穩定的免費模型清單
     const freeModels = [
       'google/gemini-2.0-flash-lite-001:free',
       'meta-llama/llama-3.3-70b-instruct:free',
-      'google/gemini-2.0-flash-exp:free'
+      'qwen/qwen-2.5-72b-instruct:free',
+      'mistralai/mistral-7b-instruct:free'
     ];
 
     let reply = '';
