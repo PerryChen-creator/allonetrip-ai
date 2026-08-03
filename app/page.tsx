@@ -211,6 +211,7 @@ export default function Home() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatHeaderRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null); // 🟢 1. 暫停 AI 功能 Controller
   const [todayStr, setTodayStr] = useState('');
 
   useEffect(() => {
@@ -277,6 +278,36 @@ export default function Home() {
     setSelectedImages((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // 🟢 2. 複製對話訊息
+  const handleCopyMessage = (content: string) => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(content);
+      alert('已複製文字至剪貼簿！');
+    }
+  };
+
+  // 🟢 3. 編輯我的對話
+  const handleEditUserMessage = (index: number) => {
+    const targetMsg = messages[index];
+    if (!targetMsg || targetMsg.role !== 'user') return;
+
+    setInputQuery(targetMsg.content);
+    if (targetMsg.images) {
+      setSelectedImages(targetMsg.images);
+    }
+    // 刪除此訊息及其後的所有對話，以便重新發送
+    setMessages((prev) => prev.slice(0, index));
+  };
+
+  // 🟢 4. 暫停 AI 生成
+  const handleStopGeneration = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setLoading(false);
+  };
+
   const handleShare = async () => {
     if (messages.length === 0) {
       alert('目前尚無行程對話內容可分享喔！');
@@ -329,10 +360,15 @@ export default function Home() {
     setInputQuery('');
     setSelectedImages([]);
 
+    // 初始化 AbortController
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
       const res = await fetch('/api/plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           destination,
           startDate,
@@ -350,9 +386,14 @@ export default function Home() {
         alert(data.error || '發生錯誤，請稍後重試');
       }
     } catch (err: any) {
-      alert(`連線錯誤: ${err.message}`);
+      if (err.name === 'AbortError') {
+        console.log('使用者手動暫停 AI 生成');
+      } else {
+        alert(`連線錯誤: ${err.message}`);
+      }
     } finally {
       setLoading(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -440,7 +481,7 @@ export default function Home() {
         </div>
 
         {/* 主內容區 */}
-        <div className="flex-1 max-w-3xl mx-auto p-4 md:p-8 space-y-6 w-full">
+        <div className="flex-1 max-w-3xl mx-auto p-4 md:p-8 space-y-6 w-full pb-32">
           
           {/* 表單區塊 */}
           <div className={`p-6 rounded-2xl shadow-sm border space-y-4 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
@@ -569,11 +610,32 @@ export default function Home() {
                         ))}
                       </div>
                     )}
-                    <div className={`p-4 rounded-2xl max-w-[95%] text-sm ${
+                    
+                    <div className={`relative p-4 rounded-2xl max-w-[95%] text-sm group ${
                       m.role === 'user'
                         ? 'bg-blue-600 text-white font-medium'
                         : (darkMode ? 'bg-slate-800 border border-slate-700' : 'bg-slate-50 border border-slate-100')
                     }`}>
+                      {/* 🟢 訊息功能操作列（複製文字 / 編輯訊息） */}
+                      <div className="flex items-center gap-2 mb-2 pb-1 border-b border-white/10 dark:border-slate-700/50 text-xs">
+                        <button
+                          onClick={() => handleCopyMessage(m.content)}
+                          className="hover:underline flex items-center gap-1 opacity-80 hover:opacity-100 transition"
+                          title="複製文字"
+                        >
+                          📋 複製
+                        </button>
+                        {m.role === 'user' && (
+                          <button
+                            onClick={() => handleEditUserMessage(i)}
+                            className="hover:underline flex items-center gap-1 opacity-80 hover:opacity-100 transition ml-2"
+                            title="修改並重新發送這條問題"
+                          >
+                            ✏️ 編輯
+                          </button>
+                        )}
+                      </div>
+
                       {m.role === 'user' ? m.content : <MarkdownMessage content={m.content} darkMode={darkMode} />}
                     </div>
                   </div>
@@ -586,99 +648,112 @@ export default function Home() {
                   </div>
                 )}
               </div>
-
-              {/* 輸入區塊 */}
-              <div className={`space-y-2 pt-2 border-t ${darkMode ? 'border-slate-800' : 'border-slate-100'}`}>
-                {selectedImages.length > 0 && (
-                  <div className={`flex gap-2 p-2 rounded-xl border border-dashed ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-300'}`}>
-                    {selectedImages.map((img, idx) => (
-                      <div key={idx} className="relative group">
-                        <img src={img} alt="預覽" className="w-14 h-14 object-cover rounded-lg" />
-                        <button
-                          onClick={() => removeImage(idx)}
-                          className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 text-xs flex items-center justify-center"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <div className="flex items-center gap-2">
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    multiple
-                    accept="image/*"
-                    onChange={handleImageChange}
-                    className="hidden"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className={`w-11 h-11 p-2.5 rounded-xl transition border flex items-center justify-center shrink-0 ${darkMode ? 'text-slate-300 hover:bg-slate-800 border-slate-700' : 'text-slate-600 hover:bg-slate-100 border-slate-300'}`}
-                    title="上傳行程圖片/靈感截圖 (最多5張)"
-                  >
-                    📎
-                  </button>
-
-                  {/* 🟢 1. 手機版精簡版輸入框 (無截斷) */}
-                  <input
-                    type="text"
-                    placeholder="問問 Perry..."
-                    value={inputQuery}
-                    onChange={(e) => setInputQuery(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-                        e.preventDefault();
-                        handleGenerate(inputQuery);
-                      }
-                    }}
-                    className={`sm:hidden flex-1 h-11 px-3.5 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 border ${darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500'}`}
-                  />
-
-                  {/* 🟢 2. 桌機版完整引導輸入框 */}
-                  <input
-                    type="text"
-                    placeholder="問問 Perry...（例如：展開 Day 1-5 的細節，或附圖詢問）"
-                    value={inputQuery}
-                    onChange={(e) => setInputQuery(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-                        e.preventDefault();
-                        handleGenerate(inputQuery);
-                      }
-                    }}
-                    className={`hidden sm:block flex-1 h-11 px-4 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 border ${darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500'}`}
-                  />
-
-                  <button
-                    onClick={() => handleGenerate(inputQuery)}
-                    disabled={loading || (!inputQuery.trim() && selectedImages.length === 0)}
-                    className={`w-11 h-11 p-2.5 flex items-center justify-center rounded-xl transition shrink-0 shadow-sm ${
-                      loading || (!inputQuery.trim() && selectedImages.length === 0)
-                        ? (darkMode ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-200 text-slate-400 cursor-not-allowed')
-                        : (darkMode ? 'bg-white text-slate-900 hover:bg-slate-100' : 'bg-slate-900 text-white hover:bg-black')
-                    }`}
-                    title="發送訊息"
-                  >
-                    {loading ? (
-                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-              </div>
             </div>
           )}
 
         </div>
       </div>
+
+      {/* 🟢 5. 核心修改：追問輸入列全畫置底固定 (Fixed Bottom Bar) */}
+      {(messages.length > 0 || loading) && (
+        <div className={`fixed bottom-0 left-0 right-0 z-40 border-t p-3 md:pl-72 md:pr-8 backdrop-blur-xl shadow-2xl transition-all ${
+          darkMode ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-slate-200'
+        }`}>
+          <div className="max-w-3xl mx-auto space-y-2">
+            {selectedImages.length > 0 && (
+              <div className={`flex gap-2 p-2 rounded-xl border border-dashed ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-300'}`}>
+                {selectedImages.map((img, idx) => (
+                  <div key={idx} className="relative group">
+                    <img src={img} alt="預覽" className="w-12 h-14 object-cover rounded-lg" />
+                    <button
+                      onClick={() => removeImage(idx)}
+                      className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 text-xs flex items-center justify-center"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex items-center gap-2">
+              <input
+                type="file"
+                ref={fileInputRef}
+                multiple
+                accept="image/*"
+                onChange={handleImageChange}
+                className="hidden"
+              />
+
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className={`w-11 h-11 p-2.5 rounded-xl transition border flex items-center justify-center shrink-0 ${darkMode ? 'text-slate-300 hover:bg-slate-800 border-slate-700' : 'text-slate-600 hover:bg-slate-100 border-slate-300'}`}
+                title="上傳行程圖片/靈感截圖 (最多5張)"
+              >
+                📎
+              </button>
+
+              {/* 手機版精簡輸入框 */}
+              <input
+                type="text"
+                placeholder="問問 Perry..."
+                value={inputQuery}
+                onChange={(e) => setInputQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                    e.preventDefault();
+                    handleGenerate(inputQuery);
+                  }
+                }}
+                className={`sm:hidden flex-1 h-11 px-3.5 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 border ${darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500'}`}
+              />
+
+              {/* 桌機版輸入框 */}
+              <input
+                type="text"
+                placeholder="問問 Perry...（例如：展開 Day 1-5 的細節，或附圖詢問）"
+                value={inputQuery}
+                onChange={(e) => setInputQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                    e.preventDefault();
+                    handleGenerate(inputQuery);
+                  }
+                }}
+                className={`hidden sm:block flex-1 h-11 px-4 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 border ${darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500'}`}
+              />
+
+              {/* 🟢 暫停 / 發送動態按鈕 */}
+              {loading ? (
+                <button
+                  onClick={handleStopGeneration}
+                  className="w-11 h-11 p-2.5 flex items-center justify-center rounded-xl bg-red-600 hover:bg-red-700 text-white shrink-0 shadow-sm transition"
+                  title="暫停 AI 回應"
+                >
+                  <span className="text-sm font-bold">⏹</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleGenerate(inputQuery)}
+                  disabled={!inputQuery.trim() && selectedImages.length === 0}
+                  className={`w-11 h-11 p-2.5 flex items-center justify-center rounded-xl transition shrink-0 shadow-sm ${
+                    !inputQuery.trim() && selectedImages.length === 0
+                      ? (darkMode ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-200 text-slate-400 cursor-not-allowed')
+                      : (darkMode ? 'bg-white text-slate-900 hover:bg-slate-100' : 'bg-slate-900 text-white hover:bg-black')
+                  }`}
+                  title="發送訊息"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal 彈窗 */}
       {isPrefModalOpen && (

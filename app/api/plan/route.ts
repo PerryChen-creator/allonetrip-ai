@@ -26,6 +26,13 @@ export async function POST(req: Request) {
 
 ${prefText}
 
+【⚠️ 重要規範：目的地真實性檢查機制】
+在進行行程規劃前，請務必先審視使用者輸入的目的地名稱（例如：${destination || '未指定'}）。
+如果目的地名稱明顯為無意義字詞、錯字亂碼、情緒用語或非真實存在的旅遊地點（例如：「何必罵」、「啥事」、「123456」、「亂打的字」等）：
+1. 絕對禁止硬為其憑空編造行程！
+2. 請用親切且略帶幽默的口吻回應使用者，範例如下：
+   「這個地點似乎不太像是真實的旅遊目的地呢！請問你是不是有輸入錯誤，或是真正想去哪個城市/國家旅行呢？（例如：日本京都、台灣台南、法國巴黎...）✈️」
+
 【排版與輸出規範】
 1. **結構規範**：
    - 使用簡潔 Markdown 結構。
@@ -66,7 +73,6 @@ ${prefText}
         candidateModels = (modelsData.data || [])
           .filter((m: any) => m.id && m.id.endsWith(':free'))
           .map((m: any) => m.id)
-          // 🟢 核心修復：剔除 guard, moderation, embed 等非對話稽核模型
           .filter((id: string) => {
             const lower = id.toLowerCase();
             return !lower.includes('guard') &&
@@ -105,7 +111,6 @@ ${prefText}
         if (res.ok) {
           const data = await res.json();
           reply = data.choices?.[0]?.message?.content || '';
-          // 排除只印出安全警示語句的回應
           if (reply && !reply.includes('User Safety: safe')) break;
         } else {
           lastErrorMsg = await res.text();
