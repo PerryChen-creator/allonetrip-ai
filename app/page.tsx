@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 
-// 🟢 1. 核心壓縮函式：使用原生 CompressionStream (deflate-raw) 大幅縮短 URL 長度
+// 核心壓縮函式：使用原生 CompressionStream (deflate-raw) 大幅縮短 URL 長度
 async function compressToUrl(data: any) {
   try {
     const jsonStr = JSON.stringify(data);
@@ -23,7 +23,7 @@ async function compressToUrl(data: any) {
   }
 }
 
-// 🟢 2. 核心解壓縮函式：解壓並還原對話資料（支援新舊版本相容）
+// 核心解壓縮函式：解壓並還原對話資料
 async function decompressFromUrl(encoded: string) {
   try {
     let base64 = encoded.replace(/-/g, '+').replace(/_/g, '/');
@@ -54,7 +54,6 @@ async function decompressFromUrl(encoded: string) {
     }
     return data;
   } catch (e) {
-    // 降級回原本的 Base64 解析（向下相容舊連結）
     try {
       let base64 = encoded.replace(/-/g, '+').replace(/_/g, '/');
       while (base64.length % 4) base64 += '=';
@@ -340,7 +339,6 @@ export default function Home() {
     setLoading(false);
   };
 
-  // 🟢 使用 Gzip/Deflate 壓縮分享 URL
   const handleShare = async () => {
     if (messages.length === 0) {
       alert('目前尚無行程對話內容可分享喔！');
@@ -550,32 +548,55 @@ export default function Home() {
                 )}
               </div>
 
-              {/* 🟢 修復：加強 WebKit 日期選擇器偽元素樣式，確保手機端文字清晰顯示 */}
+              {/* 🟢 核心修正：跨裝置 100% 相容的日期選擇 Overlay Placeholder 結構 */}
               <div className="grid grid-cols-2 gap-3">
-                <input
-                  type="date"
-                  min={todayStr}
-                  value={startDate}
-                  style={{ colorScheme: darkMode ? 'dark' : 'light' }}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className={`w-full h-11 px-3 border rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 block [&::-webkit-date-and-time-value]:text-left [&::-webkit-date-and-time-value]:min-h-[1.5em] ${
-                    darkMode
-                      ? 'bg-slate-800 border-slate-700 text-white'
-                      : 'bg-white border-slate-300 text-slate-900'
-                  }`}
-                />
-                <input
-                  type="date"
-                  min={startDate || todayStr}
-                  value={endDate}
-                  style={{ colorScheme: darkMode ? 'dark' : 'light' }}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className={`w-full h-11 px-3 border rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 block [&::-webkit-date-and-time-value]:text-left [&::-webkit-date-and-time-value]:min-h-[1.5em] ${
-                    darkMode
-                      ? 'bg-slate-800 border-slate-700 text-white'
-                      : 'bg-white border-slate-300 text-slate-900'
-                  }`}
-                />
+                <div className="relative w-full">
+                  <input
+                    type="date"
+                    min={todayStr}
+                    value={startDate}
+                    style={{ colorScheme: darkMode ? 'dark' : 'light' }}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className={`w-full h-11 px-3 border rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 block ${
+                      startDate
+                        ? (darkMode ? 'text-white bg-slate-800 border-slate-700' : 'text-slate-900 bg-white border-slate-300')
+                        : (darkMode ? 'text-transparent bg-slate-800 border-slate-700' : 'text-transparent bg-white border-slate-300')
+                    }`}
+                  />
+                  {!startDate && (
+                    <span
+                      className={`pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-medium ${
+                        darkMode ? 'text-slate-400' : 'text-slate-500'
+                      }`}
+                    >
+                      年 / 月 / 日
+                    </span>
+                  )}
+                </div>
+
+                <div className="relative w-full">
+                  <input
+                    type="date"
+                    min={startDate || todayStr}
+                    value={endDate}
+                    style={{ colorScheme: darkMode ? 'dark' : 'light' }}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className={`w-full h-11 px-3 border rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 block ${
+                      endDate
+                        ? (darkMode ? 'text-white bg-slate-800 border-slate-700' : 'text-slate-900 bg-white border-slate-300')
+                        : (darkMode ? 'text-transparent bg-slate-800 border-slate-700' : 'text-transparent bg-white border-slate-300')
+                    }`}
+                  />
+                  {!endDate && (
+                    <span
+                      className={`pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-medium ${
+                        darkMode ? 'text-slate-400' : 'text-slate-500'
+                      }`}
+                    >
+                      年 / 月 / 日
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -668,7 +689,7 @@ export default function Home() {
                     }`}>
                       {m.role === 'user' ? m.content : <MarkdownMessage content={m.content} darkMode={darkMode} />}
 
-                      {/* Gemini 風格訊息操作列 (位於訊息下方，純 Icon) */}
+                      {/* Gemini 風格訊息操作列 */}
                       <div className={`flex items-center gap-1 mt-3 pt-2 border-t ${
                         m.role === 'user'
                           ? 'border-white/20 text-white/80 justify-end'
@@ -713,7 +734,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 追問輸入列（懸浮底欄，桌機避開左側邊欄） */}
+      {/* 追問輸入列 */}
       {(messages.length > 0 || loading) && (
         <div className={`fixed bottom-0 left-0 md:left-64 right-0 z-40 border-t p-3 md:px-8 backdrop-blur-xl shadow-2xl transition-all ${
           darkMode ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-slate-200'
