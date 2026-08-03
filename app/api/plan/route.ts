@@ -40,39 +40,51 @@ ${prefText}
       })) || [])
     ];
 
-    // 🟢 符合 OpenRouter 規範：限制恰好 3 個免費自動備援模型
-    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey.trim()}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://allonetrip-ai.vercel.app',
-        'X-Title': 'AllOneTrip AI',
-      },
-      body: JSON.stringify({
-        models: [
-          'meta-llama/llama-3.3-70b-instruct:free',
-          'google/gemini-2.0-flash-lite-001:free',
-          'qwen/qwen-2.5-72b-instruct:free'
-        ],
-        messages: formattedMessages,
-      }),
-    });
+    // 🟢 獨立容錯模型清單：優先調用 Gemini 2.0 Flash Lite，失敗自動無縫切換
+    const candidateModels = [
+      'google/gemini-2.0-flash-lite-001:free',
+      'qwen/qwen-2.5-72b-instruct:free',
+      'meta-llama/llama-3.1-8b-instruct:free',
+      'mistralai/mistral-small-24b-instruct-2501:free'
+    ];
 
-    if (!res.ok) {
-      const errorText = await res.text();
-      return NextResponse.json(
-        { error: `OpenRouter 服務回應錯誤: ${errorText}` },
-        { status: res.status }
-      );
+    let reply = '';
+    let lastError = '';
+
+    for (const model of candidateModels) {
+      try {
+        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey.trim()}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://allonetrip-ai.vercel.app',
+            'X-Title': 'AllOneTrip AI',
+          },
+          body: JSON.stringify({
+            model,
+            messages: formattedMessages,
+          }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const content = data.choices?.[0]?.message?.content;
+          if (content) {
+            reply = content;
+            break; // 成功取得回應即刻跳出迴圈
+          }
+        } else {
+          lastError = await res.text();
+        }
+      } catch (err: any) {
+        lastError = err.message || String(err);
+      }
     }
-
-    const data = await res.json();
-    const reply = data.choices?.[0]?.message?.content;
 
     if (!reply) {
       return NextResponse.json(
-        { error: 'AI 未回傳有效內容，請重試一次。' },
+        { error: `AI 服務暫時無法回應，請稍後再試。(${lastError})` },
         { status: 500 }
       );
     }
