@@ -227,10 +227,38 @@ export default function Home() {
     setSelectedImages((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleShare = () => {
+  // 🟢 2. 核心修改：打包分享真實對話內容
+  const handleShare = async () => {
+    if (messages.length === 0) {
+      alert('目前尚無行程對話內容可分享喔！');
+      return;
+    }
+
+    const dialogueText = messages
+      .map((m) => `${m.role === 'user' ? '👤 旅人' : '🧳 Perry AI'}:\n${m.content}`)
+      .join('\n\n------------------------\n\n');
+
+    const shareContent = `🧳【AllOneTrip AI 獨旅行程對話紀錄】\n目的地：${destination || '未指定'}\n日期：${startDate} ~ ${endDate}\n\n${dialogueText}\n\n👉 體驗 Perry 獨旅 AI 幫手：${window.location.href}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `🧳 Perry AI 獨旅行程分享：${destination}`,
+          text: shareContent,
+        });
+        return;
+      } catch (e) {
+        // 使用者取消分享時不動作
+      }
+    }
+
     if (navigator.clipboard) {
-      navigator.clipboard.writeText(window.location.href);
-      alert('已複製行程連結至剪貼簿！');
+      try {
+        await navigator.clipboard.writeText(shareContent);
+        alert('已成功將整份「行程與 AI 對話內容」複製至剪貼簿，可以直接貼給朋友喔！');
+      } catch (err) {
+        alert('複製失敗，請重試');
+      }
     }
   };
 
@@ -285,7 +313,7 @@ export default function Home() {
     <div className={`min-h-screen transition-colors duration-200 ${darkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
       
       {/* 手機版頂部 Header */}
-      <div className={`md:hidden sticky top-0 z-30 backdrop-blur-md border-b px-4 py-3 flex items-center justify-between shadow-sm ${darkMode ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-slate-200'}`}>
+      <div className={`md:hidden sticky top-0 z-30 backdrop-blur-md border-b px-4 py-2.5 flex items-center justify-between shadow-sm ${darkMode ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-slate-200'}`}>
         <div>
           <h1 className={`text-base font-bold flex items-center gap-1.5 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
             🧳 獨旅 AI 幫手
@@ -309,7 +337,7 @@ export default function Home() {
 
       {/* 手機版下拉選單 */}
       {isMobileMenuOpen && (
-        <div className={`md:hidden sticky top-[57px] z-20 border-b p-4 space-y-3 shadow-lg ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+        <div className={`md:hidden sticky top-[53px] z-20 border-b p-4 space-y-3 shadow-lg ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
           <button
             onClick={() => { setIsPrefModalOpen(true); setIsMobileMenuOpen(false); }}
             className={`w-full py-2.5 rounded-xl text-xs font-bold transition border ${darkMode ? 'bg-slate-800 text-slate-200 border-slate-700' : 'bg-slate-100 text-slate-800 border-slate-200'}`}
@@ -328,10 +356,9 @@ export default function Home() {
         </div>
       )}
 
-      {/* 🔴 父容器加入 items-start，防止垂直方向延展拉長 */}
       <div className="flex flex-col md:flex-row items-start min-h-screen">
         
-        {/* 🔴 桌機版側邊欄：加入 md:self-start，完全固定視窗高度 (100vh)，絕不隨右側長伸 */}
+        {/* 桌機版側邊欄 */}
         <div className={`hidden md:flex md:w-64 md:h-screen md:sticky md:top-0 md:self-start border-r p-6 flex-col justify-between shrink-0 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
           <div>
             <h1 className={`text-xl font-bold flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
@@ -458,26 +485,27 @@ export default function Home() {
           {(messages.length > 0 || loading) && (
             <div className={`rounded-2xl shadow-sm border p-4 md:p-6 space-y-4 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
               
-              {/* Sticky 對話頂欄 */}
-              <div ref={chatHeaderRef} className={`flex items-center justify-between border-b pb-3 sticky top-[57px] md:top-0 backdrop-blur-md z-10 pt-1 ${darkMode ? 'border-slate-800 bg-slate-900/95' : 'border-slate-100 bg-white/95'}`}>
-                <span className={`font-bold text-xs sm:text-sm flex items-center gap-1 shrink-0 ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
+              {/* 🟢 1. 核心修改：手機版 Sticky Bar 移除無謂的標題，留空給按鈕置頂 */}
+              <div ref={chatHeaderRef} className={`flex items-center justify-between border-b pb-2.5 sticky top-[53px] md:top-0 backdrop-blur-md z-10 pt-2 px-1 ${darkMode ? 'border-slate-800 bg-slate-900/95' : 'border-slate-100 bg-white/95'}`}>
+                <span className={`hidden sm:flex font-bold text-sm items-center gap-1 shrink-0 ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
                   📍 專屬獨旅行程對話
                 </span>
                 
-                <div className="flex items-center gap-1.5 shrink-0">
+                {/* 雙 CTA 按鈕區 (手機端平分平鋪) */}
+                <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-2">
                   <button
                     onClick={handleShare}
-                    className={`px-2.5 py-1.5 text-xs font-bold rounded-lg transition border flex items-center gap-1 ${darkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200'}`}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-xl transition border flex items-center justify-center gap-1.5 flex-1 sm:flex-initial ${darkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200'}`}
                   >
-                    🔗 <span className="hidden sm:inline">分享行程</span><span className="sm:hidden">分享</span>
+                    🔗 分享對話
                   </button>
                   <a
                     href="https://www.instagram.com/allonetrip_perry/"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`px-2.5 py-1.5 text-xs font-bold rounded-lg transition border flex items-center gap-1 ${darkMode ? 'bg-pink-950/40 hover:bg-pink-900/50 text-pink-300 border-pink-800' : 'bg-pink-50 hover:bg-pink-100 text-pink-600 border-pink-200'}`}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-xl transition border flex items-center justify-center gap-1.5 flex-1 sm:flex-initial ${darkMode ? 'bg-pink-950/40 hover:bg-pink-900/50 text-pink-300 border-pink-800' : 'bg-pink-50 hover:bg-pink-100 text-pink-600 border-pink-200'}`}
                   >
-                    💼 <span className="hidden sm:inline">與我聯繫</span><span className="sm:hidden">聯繫</span>
+                    💼 與我聯繫
                   </a>
                 </div>
               </div>
@@ -539,10 +567,11 @@ export default function Home() {
                     className="hidden"
                   />
 
+                  {/* 📎 附件圖示 (與輸入框、發送鈕同高等寬) */}
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className={`p-2.5 rounded-xl transition border ${darkMode ? 'text-slate-300 hover:bg-slate-800 border-slate-700' : 'text-slate-600 hover:bg-slate-100 border-slate-300'}`}
+                    className={`w-11 h-11 p-2.5 rounded-xl transition border flex items-center justify-center shrink-0 ${darkMode ? 'text-slate-300 hover:bg-slate-800 border-slate-700' : 'text-slate-600 hover:bg-slate-100 border-slate-300'}`}
                     title="上傳行程圖片/靈感截圖 (最多5張)"
                   >
                     📎
@@ -559,15 +588,27 @@ export default function Home() {
                         handleGenerate(inputQuery);
                       }
                     }}
-                    className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 border ${darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500'}`}
+                    className={`flex-1 h-11 px-4 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 border ${darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500'}`}
                   />
 
+                  {/* 🟢 3. 核心修改：Gemini 風格向上箭頭發送按鈕 (高度 h-11 與輸入框完美切齊) */}
                   <button
                     onClick={() => handleGenerate(inputQuery)}
-                    disabled={loading}
-                    className={`px-5 py-2.5 text-sm font-bold rounded-xl transition hover:opacity-90 ${darkMode ? 'bg-white text-slate-900' : 'bg-slate-900 text-white'}`}
+                    disabled={loading || (!inputQuery.trim() && selectedImages.length === 0)}
+                    className={`w-11 h-11 p-2.5 flex items-center justify-center rounded-xl transition shrink-0 shadow-sm ${
+                      loading || (!inputQuery.trim() && selectedImages.length === 0)
+                        ? (darkMode ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-200 text-slate-400 cursor-not-allowed')
+                        : (darkMode ? 'bg-white text-slate-900 hover:bg-slate-100' : 'bg-slate-900 text-white hover:bg-black')
+                    }`}
+                    title="發送訊息"
                   >
-                    發送
+                    {loading ? (
+                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
+                      </svg>
+                    )}
                   </button>
                 </div>
               </div>
