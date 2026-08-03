@@ -2,38 +2,44 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 
-// 輔助函式：將對話資料轉換為輕量 URL 安全 Base64 字串
-function encodeShareData(data: any) {
+// 🟢 1. 核心壓縮函式：使用原生 CompressionStream (deflate-raw) 大幅縮短 URL 長度
+async function compressToUrl(data: any) {
   try {
     const jsonStr = JSON.stringify(data);
-    const utf8Bytes = new TextEncoder().encode(jsonStr);
-    let binary = '';
-    utf8Bytes.forEach((b) => (binary += String.fromCharCode(b)));
+    const byteArray = new TextEncoder().encode(jsonStr);
+    const cs = new CompressionStream('deflate-raw');
+    const writer = cs.writable.getWriter();
+    writer.write(byteArray);
+    writer.close();
+    const buffer = await new Response(cs.readable).arrayBuffer();
+    const binary = String.fromCharCode(...new Uint8Array(buffer));
     return btoa(binary)
       .replace(/\+/g, '-')
       .replace(/\//g, '_')
       .replace(/=+$/, '');
   } catch (e) {
+    console.error('Compression failed:', e);
     return '';
   }
 }
 
-// 輔助函式：從 URL Base64 字串還原對話資料（相容舊版與極簡新版格式）
-function decodeShareData(encoded: string) {
+// 🟢 2. 核心解壓縮函式：解壓並還原對話資料（支援新舊版本相容）
+async function decompressFromUrl(encoded: string) {
   try {
     let base64 = encoded.replace(/-/g, '+').replace(/_/g, '/');
     while (base64.length % 4) {
       base64 += '=';
     }
     const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    const jsonStr = new TextDecoder().decode(bytes);
+    const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+    const ds = new DecompressionStream('deflate-raw');
+    const writer = ds.writable.getWriter();
+    writer.write(bytes);
+    writer.close();
+    const buffer = await new Response(ds.readable).arrayBuffer();
+    const jsonStr = new TextDecoder().decode(buffer);
     const data = JSON.parse(jsonStr);
 
-    // 解析極簡化 Key (d, s, e, st, m)
     if (data.d !== undefined || data.m !== undefined) {
       return {
         destination: data.d || '',
@@ -48,7 +54,18 @@ function decodeShareData(encoded: string) {
     }
     return data;
   } catch (e) {
-    return null;
+    // 降級回原本的 Base64 解析（向下相容舊連結）
+    try {
+      let base64 = encoded.replace(/-/g, '+').replace(/_/g, '/');
+      while (base64.length % 4) base64 += '=';
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const jsonStr = new TextDecoder().decode(bytes);
+      return JSON.parse(jsonStr);
+    } catch (err) {
+      return null;
+    }
   }
 }
 
@@ -236,20 +253,24 @@ export default function Home() {
     const day = String(today.getDate()).padStart(2, '0');
     setTodayStr(`${year}-${month}-${day}`);
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const shareParam = urlParams.get('share');
-    if (shareParam) {
-      const decodedData = decodeShareData(shareParam);
-      if (decodedData) {
-        if (decodedData.destination) setDestination(decodedData.destination);
-        if (decodedData.startDate) setStartDate(decodedData.startDate);
-        if (decodedData.endDate) setEndDate(decodedData.endDate);
-        if (decodedData.style) setStyle(decodedData.style);
-        if (decodedData.messages && Array.isArray(decodedData.messages)) {
-          setMessages(decodedData.messages);
+    const loadSharedData = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const shareParam = urlParams.get('share');
+      if (shareParam) {
+        const decodedData = await decompressFromUrl(shareParam);
+        if (decodedData) {
+          if (decodedData.destination) setDestination(decodedData.destination);
+          if (decodedData.startDate) setStartDate(decodedData.startDate);
+          if (decodedData.endDate) setEndDate(decodedData.endDate);
+          if (decodedData.style) setStyle(decodedData.style);
+          if (decodedData.messages && Array.isArray(decodedData.messages)) {
+            setMessages(decodedData.messages);
+          }
         }
       }
-    }
+    };
+
+    loadSharedData();
   }, []);
 
   useEffect(() => {
@@ -319,7 +340,7 @@ export default function Home() {
     setLoading(false);
   };
 
-  // 🔴 2. 修改：去除大容量 Base64 圖片，採用短 Key 大幅壓縮分享 URL 長度
+  // 🟢 使用 Gzip/Deflate 壓縮分享 URL
   const handleShare = async () => {
     if (messages.length === 0) {
       alert('目前尚無行程對話內容可分享喔！');
@@ -339,7 +360,7 @@ export default function Home() {
       m: compactMessages,
     };
 
-    const encoded = encodeShareData(payload);
+    const encoded = await compressToUrl(payload);
     if (!encoded) {
       alert('打包對話資料失敗，請重試');
       return;
@@ -350,7 +371,7 @@ export default function Home() {
     if (navigator.clipboard) {
       try {
         await navigator.clipboard.writeText(shareUrl);
-        alert('✨ 已為你生成專屬對話連結並複製至剪貼簿！\n朋友點開連結即可直接瀏覽這份完整的行程對話。');
+        alert('✨ 已為你生成極簡專屬對話連結並複製至剪貼簿！\n朋友點開連結即可直接瀏覽這份完整的行程對話。');
       } catch (err) {
         prompt('請複製以下專屬對話網址分享給朋友：', shareUrl);
       }
@@ -528,6 +549,8 @@ export default function Home() {
                   </span>
                 )}
               </div>
+
+              {/* 🟢 修復：加強 WebKit 日期選擇器偽元素樣式，確保手機端文字清晰顯示 */}
               <div className="grid grid-cols-2 gap-3">
                 <input
                   type="date"
@@ -535,7 +558,11 @@ export default function Home() {
                   value={startDate}
                   style={{ colorScheme: darkMode ? 'dark' : 'light' }}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className={`p-2.5 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 border ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'}`}
+                  className={`w-full h-11 px-3 border rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 block [&::-webkit-date-and-time-value]:text-left [&::-webkit-date-and-time-value]:min-h-[1.5em] ${
+                    darkMode
+                      ? 'bg-slate-800 border-slate-700 text-white'
+                      : 'bg-white border-slate-300 text-slate-900'
+                  }`}
                 />
                 <input
                   type="date"
@@ -543,7 +570,11 @@ export default function Home() {
                   value={endDate}
                   style={{ colorScheme: darkMode ? 'dark' : 'light' }}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className={`p-2.5 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 border ${darkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'}`}
+                  className={`w-full h-11 px-3 border rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 block [&::-webkit-date-and-time-value]:text-left [&::-webkit-date-and-time-value]:min-h-[1.5em] ${
+                    darkMode
+                      ? 'bg-slate-800 border-slate-700 text-white'
+                      : 'bg-white border-slate-300 text-slate-900'
+                  }`}
                 />
               </div>
             </div>
@@ -682,7 +713,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 🔴 1. 修改：懸浮底欄在桌機上改為 md:left-64，不再覆蓋左側邊欄區域 */}
+      {/* 追問輸入列（懸浮底欄，桌機避開左側邊欄） */}
       {(messages.length > 0 || loading) && (
         <div className={`fixed bottom-0 left-0 md:left-64 right-0 z-40 border-t p-3 md:px-8 backdrop-blur-xl shadow-2xl transition-all ${
           darkMode ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-slate-200'
