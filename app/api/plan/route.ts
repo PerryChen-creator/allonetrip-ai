@@ -2,11 +2,12 @@ import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
   try {
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    // 🟢 改抓 GEMINI_API_KEY
+    const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
       return NextResponse.json(
-        { error: '伺服器未設定 OPENROUTER_API_KEY，請至 Vercel Dashboard 設定環境變數' },
+        { error: '伺服器未設定 GEMINI_API_KEY，請至 Vercel Dashboard 設定環境變數' },
         { status: 500 }
       );
     }
@@ -32,38 +33,36 @@ ${prefText}
    [景點名稱](https://www.google.com/maps/search/?api=1&query=LocationName)
 3. 請保持親切、專業且有條理的對話語氣。`;
 
-    const apiMessages = [
-      { role: 'system', content: systemPrompt },
-      ...(messages || []),
-    ];
+    // 重新組合歷史訊息，轉換成 Google Gemini 支援的格式
+    const formattedMessages = messages?.map((m: any) => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }]
+    })) || [];
 
-    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    // 🟢 直連 Google 原生 Gemini 1.5 Flash 伺服器 (速度極快、100%免費穩定)
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey.trim()}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://allonetrip-ai.vercel.app',
-        'X-Title': 'AllOneTrip AI',
       },
       body: JSON.stringify({
-        // 🟢 終極護城河：使用 OpenRouter 伺服器最多、永遠不會擠爆的 3 大老牌免費模型
-        models: [
-          'mistralai/mistral-7b-instruct:free',
-          'huggingfaceh4/zephyr-7b-beta:free',
-          'openchat/openchat-7b:free'
-        ],
-        messages: apiMessages,
+        systemInstruction: {
+          parts: [{ text: systemPrompt }]
+        },
+        contents: formattedMessages
       }),
     });
 
     if (!res.ok) {
       const errText = await res.text();
-      console.error('OpenRouter Direct Error:', errText);
-      return NextResponse.json({ error: `API 請求失敗 (${res.status}): ${errText}` }, { status: res.status });
+      console.error('Google Gemini API Error:', errText);
+      return NextResponse.json({ error: `Google API 請求失敗 (${res.status}): ${errText}` }, { status: res.status });
     }
 
     const data = await res.json();
-    const reply = data.choices?.[0]?.message?.content;
+    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!reply) {
       return NextResponse.json({ error: 'AI 未能生成內容，請稍後再試' }, { status: 500 });
