@@ -361,7 +361,7 @@ export default function Home() {
   return (
     <div className={`min-h-screen transition-colors duration-200 ${darkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
       
-      {/* 🟢 手機版頂部 Header：精準固定高度 h-14 (56px) 且置頂 z-30 */}
+      {/* 手機版頂部 Header */}
       <div className={`md:hidden sticky top-0 h-14 z-30 backdrop-blur-md border-b px-4 flex items-center justify-between shadow-sm ${darkMode ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-slate-200'}`}>
         <div>
           <h1 className={`text-base font-bold flex items-center gap-1.5 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
@@ -384,7 +384,7 @@ export default function Home() {
         </button>
       </div>
 
-      {/* 手機版下拉選單 Drawer */}
+      {/* 手機版下拉選單 */}
       {isMobileMenuOpen && (
         <div className={`md:hidden sticky top-14 z-20 border-b p-4 space-y-3 shadow-lg ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
           <button
@@ -534,13 +534,12 @@ export default function Home() {
           {(messages.length > 0 || loading) && (
             <div className={`rounded-2xl shadow-sm border p-4 md:p-6 space-y-4 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
               
-              {/* 🟢 核心修改：手機端頂部偏移精準設定為 top-14 (56px)，絕不與最頂部 Header 遮擋重疊 */}
+              {/* Sticky Bar */}
               <div ref={chatHeaderRef} className={`flex items-center justify-between border-b pb-2.5 sticky top-14 md:top-0 backdrop-blur-md z-10 pt-2 px-1 ${darkMode ? 'border-slate-800 bg-slate-900/95' : 'border-slate-100 bg-white/95'}`}>
                 <span className={`hidden sm:flex font-bold text-sm items-center gap-1 shrink-0 ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
                   📍 專屬獨旅行程對話
                 </span>
                 
-                {/* 雙 CTA 按鈕區 */}
                 <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-2">
                   <button
                     onClick={handleShare}
@@ -625,9 +624,10 @@ export default function Home() {
                     📎
                   </button>
 
+                  {/* 🟢 1. 手機版精簡版輸入框 (無截斷) */}
                   <input
                     type="text"
-                    placeholder="問問 Perry...（例如：展開 Day 1-5，或附圖）"
+                    placeholder="問問 Perry..."
                     value={inputQuery}
                     onChange={(e) => setInputQuery(e.target.value)}
                     onKeyDown={(e) => {
@@ -636,7 +636,22 @@ export default function Home() {
                         handleGenerate(inputQuery);
                       }
                     }}
-                    className={`flex-1 h-11 px-4 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 border ${darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500'}`}
+                    className={`sm:hidden flex-1 h-11 px-3.5 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 border ${darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500'}`}
+                  />
+
+                  {/* 🟢 2. 桌機版完整引導輸入框 */}
+                  <input
+                    type="text"
+                    placeholder="問問 Perry...（例如：展開 Day 1-5 的細節，或附圖詢問）"
+                    value={inputQuery}
+                    onChange={(e) => setInputQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                        e.preventDefault();
+                        handleGenerate(inputQuery);
+                      }
+                    }}
+                    className={`hidden sm:block flex-1 h-11 px-4 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 border ${darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500'}`}
                   />
 
                   <button
