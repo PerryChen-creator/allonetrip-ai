@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
   try {
-    // 🟢 改抓 GEMINI_API_KEY
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
@@ -33,39 +32,54 @@ ${prefText}
    [景點名稱](https://www.google.com/maps/search/?api=1&query=LocationName)
 3. 請保持親切、專業且有條理的對話語氣。`;
 
-    // 重新組合歷史訊息，轉換成 Google Gemini 支援的格式
     const formattedMessages = messages?.map((m: any) => ({
       role: m.role === 'assistant' ? 'model' : 'user',
       parts: [{ text: m.content }]
     })) || [];
 
-    // 🟢 直連 Google 原生 Gemini 1.5 Flash 伺服器 (速度極快、100%免費穩定)
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    // 🟢 自動輪詢備援清單 (跨模型與 API 版本自動嘗試)
+    const candidates = [
+      { version: 'v1beta', model: 'gemini-2.0-flash' },
+      { version: 'v1', model: 'gemini-1.5-flash' },
+      { version: 'v1beta', model: 'gemini-1.5-flash' },
+    ];
 
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        systemInstruction: {
-          parts: [{ text: systemPrompt }]
-        },
-        contents: formattedMessages
-      }),
-    });
+    let reply = '';
+    let lastErrorText = '';
 
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error('Google Gemini API Error:', errText);
-      return NextResponse.json({ error: `Google API 請求失敗 (${res.status}): ${errText}` }, { status: res.status });
+    for (const candidate of candidates) {
+      const url = `https://generativelanguage.googleapis.com/${candidate.version}/models/${candidate.model}:generateContent?key=${apiKey.trim()}`;
+      
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemInstruction: {
+              parts: [{ text: systemPrompt }]
+            },
+            contents: formattedMessages
+          }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          reply = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          if (reply) break; // 成功拿到回應，立即終止迴圈
+        } else {
+          lastErrorText = await res.text();
+          console.warn(`Gemini API (${candidate.version}/${candidate.model}) Warning:`, lastErrorText);
+        }
+      } catch (e: any) {
+        lastErrorText = e.message;
+      }
     }
 
-    const data = await res.json();
-    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
     if (!reply) {
-      return NextResponse.json({ error: 'AI 未能生成內容，請稍後再試' }, { status: 500 });
+      return NextResponse.json(
+        { error: `Google API 請求失敗: ${lastErrorText}` },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ reply });
