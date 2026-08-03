@@ -34,9 +34,16 @@ ${prefText}
 3. 請保持親切、專業且有條理的對話語氣。`;
 
     const genAI = new GoogleGenerativeAI(apiKey.trim());
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-    // 轉換對話歷史並將 System Prompt 注入首筆訊息，確保所有版本 100% 相容
+    // 依序嘗試合規的模型名稱
+    const modelCandidates = [
+      'gemini-2.0-flash',
+      'gemini-2.5-flash',
+      'gemini-1.5-flash-latest',
+      'gemini-1.5-flash-001',
+      'gemini-1.5-flash'
+    ];
+
     const contents = messages?.map((m: any, idx: number) => {
       let text = m.content;
       if (idx === 0 && m.role === 'user') {
@@ -48,11 +55,23 @@ ${prefText}
       };
     }) || [];
 
-    const result = await model.generateContent({ contents });
-    const reply = result.response.text();
+    let reply = '';
+    let lastError = '';
+
+    for (const modelName of modelCandidates) {
+      try {
+        const model = genAI.getGenerativeModel({ model: modelName });
+        const result = await model.generateContent({ contents });
+        reply = result.response.text();
+        if (reply) break;
+      } catch (err: any) {
+        lastError = err.message || String(err);
+        console.warn(`Model ${modelName} failed:`, lastError);
+      }
+    }
 
     if (!reply) {
-      return NextResponse.json({ error: 'AI 未能生成內容，請稍後再試' }, { status: 500 });
+      return NextResponse.json({ error: `Google API 模型呼叫失敗: ${lastError}` }, { status: 500 });
     }
 
     return NextResponse.json({ reply });
