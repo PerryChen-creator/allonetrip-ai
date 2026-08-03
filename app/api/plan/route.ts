@@ -40,48 +40,40 @@ ${prefText}
       })) || [])
     ];
 
-    // OpenRouter 現行 100% 免費且線上的穩定模型清單 (已移除深尋 R1)
-    const freeModels = [
-      'meta-llama/llama-3.3-70b-instruct:free',
-      'google/gemini-2.0-flash-lite-001:free',
-      'qwen/qwen-2.5-72b-instruct:free',
-      'mistralai/mistral-7b-instruct:free'
-    ];
+    // 🟢 傳送 OpenRouter 伺服器端自動備援陣列 (由 OpenRouter 後台無縫切換，避開 404 斷點)
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey.trim()}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://allonetrip-ai.vercel.app',
+        'X-Title': 'AllOneTrip AI',
+      },
+      body: JSON.stringify({
+        models: [
+          'meta-llama/llama-3.3-70b-instruct:free',
+          'google/gemini-2.0-flash-lite-001:free',
+          'qwen/qwen-2.5-72b-instruct:free',
+          'openrouter/auto'
+        ],
+        messages: formattedMessages,
+      }),
+    });
 
-    let reply = '';
-    let lastError = '';
-
-    for (const model of freeModels) {
-      try {
-        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiKey.trim()}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://allonetrip-ai.vercel.app',
-            'X-Title': 'AllOneTrip AI',
-          },
-          body: JSON.stringify({
-            model,
-            messages: formattedMessages,
-          }),
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          reply = data.choices?.[0]?.message?.content || '';
-          if (reply) break;
-        } else {
-          lastError = await res.text();
-        }
-      } catch (err: any) {
-        lastError = err.message;
-      }
+    if (!res.ok) {
+      const errorText = await res.text();
+      return NextResponse.json(
+        { error: `OpenRouter 服務暫時無回應，請稍後再試: ${errorText}` },
+        { status: res.status }
+      );
     }
+
+    const data = await res.json();
+    const reply = data.choices?.[0]?.message?.content;
 
     if (!reply) {
       return NextResponse.json(
-        { error: `AI 服務回應失敗: ${lastError}` },
+        { error: 'AI 未回傳有效內容，請重試一次。' },
         { status: 500 }
       );
     }
