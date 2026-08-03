@@ -420,22 +420,21 @@ export default function Home() {
         </button>
       </div>
 
-      {/* 手機版下拉選單 */}
+      {/* 🔴 手機版下拉選單 Drawer：將「設定習慣」與「切換主題」改為左右平行 1:1 佈局 */}
       {isMobileMenuOpen && (
-        <div className={`md:hidden sticky top-14 z-20 border-b p-4 space-y-3 shadow-lg ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
-          <button
-            onClick={() => { setIsPrefModalOpen(true); setIsMobileMenuOpen(false); }}
-            className={`w-full py-2.5 rounded-xl text-xs font-bold transition border ${darkMode ? 'bg-slate-800 text-slate-200 border-slate-700' : 'bg-slate-100 text-slate-800 border-slate-200'}`}
-          >
-            ✏️ 設定我的旅行習慣
-          </button>
-          <div className="flex items-center justify-between pt-1">
-            <span className={`text-xs font-bold ${darkMode ? 'text-slate-400' : 'text-slate-700'}`}>切換主題模式</span>
+        <div className={`md:hidden sticky top-14 z-20 border-b p-4 shadow-lg ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { setIsPrefModalOpen(true); setIsMobileMenuOpen(false); }}
+              className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition border flex items-center justify-center gap-1.5 ${darkMode ? 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700' : 'bg-slate-100 text-slate-800 border-slate-200 hover:bg-slate-200'}`}
+            >
+              ✏️ 設定旅行習慣
+            </button>
             <button
               onClick={() => setDarkMode(!darkMode)}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition ${darkMode ? 'bg-slate-800 text-slate-200' : 'bg-slate-200 text-slate-900'}`}
+              className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition border flex items-center justify-center gap-1.5 ${darkMode ? 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700' : 'bg-slate-100 text-slate-800 border-slate-200 hover:bg-slate-200'}`}
             >
-              {darkMode ? '🌙 深色' : '☀️ 淺色'}
+              {darkMode ? '🌙 切換深色' : '☀️ 切換淺色'}
             </button>
           </div>
         </div>
@@ -443,7 +442,7 @@ export default function Home() {
 
       <div className="flex flex-col md:flex-row items-start min-h-screen">
         
-        {/* 桌機版側邊欄 */}
+        {/* 桌機版側邊欄：同步提供簡潔平衡的獨立區塊 */}
         <div className={`hidden md:flex md:w-64 md:h-screen md:sticky md:top-0 md:self-start border-r p-6 flex-col justify-between shrink-0 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
           <div>
             <h1 className={`text-xl font-bold flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
@@ -457,21 +456,26 @@ export default function Home() {
             >
               @allonetrip_perry 專屬行程規劃
             </a>
-            <button
-              onClick={() => setIsPrefModalOpen(true)}
-              className={`mt-6 w-full py-2.5 rounded-xl text-sm font-semibold transition border shadow-sm ${darkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200'}`}
-            >
-              ✏️ 設定我的旅行習慣
-            </button>
+
+            {/* 🔴 桌機版雙按鈕區塊 */}
+            <div className="flex flex-col gap-2 mt-6">
+              <button
+                onClick={() => setIsPrefModalOpen(true)}
+                className={`w-full py-2.5 rounded-xl text-xs font-bold transition border shadow-sm flex items-center justify-center gap-1.5 ${darkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200'}`}
+              >
+                ✏️ 設定我的旅行習慣
+              </button>
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className={`w-full py-2.5 rounded-xl text-xs font-bold transition border shadow-sm flex items-center justify-center gap-1.5 ${darkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200'}`}
+              >
+                {darkMode ? '🌙 深色模式' : '☀️ 淺色模式'}
+              </button>
+            </div>
           </div>
-          <div className={`pt-6 border-t flex items-center justify-between ${darkMode ? 'border-slate-800' : 'border-slate-200'}`}>
-            <span className={`text-xs font-bold ${darkMode ? 'text-slate-400' : 'text-slate-700'}`}>切換主題模式</span>
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold transition ${darkMode ? 'bg-slate-800 text-slate-200 hover:bg-slate-700' : 'bg-slate-200 text-slate-900 hover:bg-slate-300'}`}
-            >
-              {darkMode ? '🌙' : '☀️ 淺色'}
-            </button>
+
+          <div className={`pt-4 border-t text-[11px] font-medium text-center ${darkMode ? 'border-slate-800 text-slate-500' : 'border-slate-200 text-slate-400'}`}>
+            © 2026 AllOneTrip Perry AI
           </div>
         </div>
 
@@ -611,16 +615,14 @@ export default function Home() {
                         ? 'bg-blue-600 text-white font-medium'
                         : (darkMode ? 'bg-slate-800 border border-slate-700' : 'bg-slate-50 border border-slate-100')
                     }`}>
-                      {/* 訊息內容 */}
                       {m.role === 'user' ? m.content : <MarkdownMessage content={m.content} darkMode={darkMode} />}
 
-                      {/* 🟢 操作按鈕列：Gemini 風格（位於訊息下方，純 Icon） */}
+                      {/* Gemini 風格訊息操作列 (位於訊息下方，純 Icon) */}
                       <div className={`flex items-center gap-1 mt-3 pt-2 border-t ${
                         m.role === 'user'
                           ? 'border-white/20 text-white/80 justify-end'
                           : (darkMode ? 'border-slate-700/60 text-slate-400' : 'border-slate-200/80 text-slate-500')
                       }`}>
-                        {/* 複製按鈕 */}
                         <button
                           onClick={() => handleCopyMessage(m.content)}
                           className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition"
@@ -631,7 +633,6 @@ export default function Home() {
                           </svg>
                         </button>
 
-                        {/* 編輯按鈕 (僅使用者訊息顯示) */}
                         {m.role === 'user' && (
                           <button
                             onClick={() => handleEditUserMessage(i)}
@@ -661,7 +662,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 追問輸入列（固定底端） */}
+      {/* 追問輸入列 */}
       {(messages.length > 0 || loading) && (
         <div className={`fixed bottom-0 left-0 right-0 z-40 border-t p-3 md:pl-72 md:pr-8 backdrop-blur-xl shadow-2xl transition-all ${
           darkMode ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-slate-200'
