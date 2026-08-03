@@ -40,7 +40,7 @@ ${prefText}
       })) || [])
     ];
 
-    // 🟢 傳送 OpenRouter 伺服器端自動備援陣列 (由 OpenRouter 後台無縫切換，避開 404 斷點)
+    // 🟢 符合 OpenRouter 規範：限制恰好 3 個免費自動備援模型
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -53,8 +53,7 @@ ${prefText}
         models: [
           'meta-llama/llama-3.3-70b-instruct:free',
           'google/gemini-2.0-flash-lite-001:free',
-          'qwen/qwen-2.5-72b-instruct:free',
-          'openrouter/auto'
+          'qwen/qwen-2.5-72b-instruct:free'
         ],
         messages: formattedMessages,
       }),
@@ -63,7 +62,7 @@ ${prefText}
     if (!res.ok) {
       const errorText = await res.text();
       return NextResponse.json(
-        { error: `OpenRouter 服務暫時無回應，請稍後再試: ${errorText}` },
+        { error: `OpenRouter 服務回應錯誤: ${errorText}` },
         { status: res.status }
       );
     }
