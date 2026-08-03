@@ -40,12 +40,12 @@ ${prefText}
       })) || [])
     ];
 
-    // 🟢 OpenRouter 目前現行最穩定的免費模型清單 (已完全移除 gemini-2.0-flash-exp)
+    // OpenRouter 現行 100% 免費且線上的穩定模型清單 (已移除深尋 R1)
     const freeModels = [
-      'google/gemini-2.0-flash-lite-001:free',
       'meta-llama/llama-3.3-70b-instruct:free',
+      'google/gemini-2.0-flash-lite-001:free',
       'qwen/qwen-2.5-72b-instruct:free',
-      'deepseek/deepseek-r1:free'
+      'mistralai/mistral-7b-instruct:free'
     ];
 
     let reply = '';
