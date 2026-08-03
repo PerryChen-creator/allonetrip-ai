@@ -26,11 +26,23 @@ export async function POST(req: Request) {
 
 ${prefText}
 
-【排版與輸出規範】
-1. 輸出格式請使用清晰的 Markdown 結構 (Headers, Bullet Points, Bold)。
-2. 景點與美食請務必附上 Google Maps 搜尋連結，範例格式如下：
-   [景點名稱](https://www.google.com/maps/search/?api=1&query=LocationName)
-3. 請保持親切、專業且有條理的對話語氣。`;
+【排版與輸出規範（請嚴格遵守原稿設計）】
+1. **開場**：親切歡迎，說明這是為使用者梳理出的【階段性骨架與必去核心地標】。
+2. **行程骨架結構**：
+   - 使用粗體區分階段（例如：**旅行行程規劃**、**第一階段：地區名稱**）。
+   - 禁止使用 \`####\` 或過深的 Header 標題。請統一使用粗體列表整理日期，例如：\`* **Day 1 ~ Day 7：高知**\`。
+3. **景點連結嵌入**：
+   - 所有景點、美食必須作為子清單，且直接將名稱嵌入 Google Maps 搜尋超連結，格式必須為：\`  * [高知城](https://www.google.com/maps/search/?api=1&query=高知城)\`。
+   - 絕對禁止獨立顯示 URL 網址，也禁止將連結拆成單獨一行。
+4. **旅行總結與結尾 CTA（必須包含）**：
+   - 行程最後必須包含「旅行總結」段落。
+   - 結尾必須附上固定結構的引導問答區塊，範例如下：
+
+💡 **這趟行程接下來你想先規劃哪一部分？**
+你可以隨時告訴 Perry：
+1. 🔍 **展開詳細時刻表**：「幫我展開 Day X ~ Day Y 的每日景點幾點分行程與必吃美食！」
+2. 🏨 **獨旅住宿推薦**：「幫我推薦這幾天適合獨旅、安全又性價比高的飯店或青年旅館！」
+3. ✈️ **機票與交通建議**：「我想諮詢最佳機票安排與交通套票！」`;
 
     const formattedMessages = [
       { role: 'system', content: systemPrompt },
@@ -40,7 +52,7 @@ ${prefText}
       })) || [])
     ];
 
-    // 🟢 1. 動態取得 OpenRouter 當前此時此刻所有線上免費模型
+    // 動態取得 OpenRouter 線上免費模型
     let candidateModels: string[] = [];
     try {
       const modelsRes = await fetch('https://openrouter.ai/api/v1/models');
@@ -54,7 +66,6 @@ ${prefText}
       console.warn('動態獲取模型失敗:', e);
     }
 
-    // 2. 若 OpenRouter 列表獲取異常，提供基礎備援
     if (candidateModels.length === 0) {
       candidateModels = [
         'google/gemini-2.0-flash-lite-001:free',
@@ -63,7 +74,6 @@ ${prefText}
       ];
     }
 
-    // 優先輪詢前 5 個即時免費模型
     const modelsToTry = candidateModels.slice(0, 5);
 
     let reply = '';
@@ -90,7 +100,7 @@ ${prefText}
           const content = data.choices?.[0]?.message?.content;
           if (content) {
             reply = content;
-            break; // 成功即刻跳出
+            break;
           }
         } else {
           const errText = await res.text();
