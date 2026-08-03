@@ -469,21 +469,11 @@ export default function Home() {
   return (
     <div className={`min-h-screen transition-colors duration-200 ${darkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
       
-      {/* 手機版頂部 Header */}
+      {/* 手機版頂部 Header (移除 @allonetrip_perry 副標題) */}
       <div className={`md:hidden sticky top-0 h-14 z-30 backdrop-blur-md border-b px-4 flex items-center justify-between shadow-sm ${darkMode ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-slate-200'}`}>
-        <div>
-          <h1 className={`text-base font-bold flex items-center gap-1.5 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
-            🧳 獨旅 AI 幫手
-          </h1>
-          <a
-            href="https://www.instagram.com/allonetrip_perry/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`text-[10px] underline ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}
-          >
-            @allonetrip_perry 專屬行程規劃
-          </a>
-        </div>
+        <h1 className={`text-base font-bold flex items-center gap-1.5 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
+          🧳 獨旅 AI 幫手
+        </h1>
         <button
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           className={`p-2 rounded-xl transition border ${darkMode ? 'text-slate-200 hover:bg-slate-800 border-slate-700' : 'text-slate-700 hover:bg-slate-100 border-slate-200'}`}
@@ -492,7 +482,7 @@ export default function Home() {
         </button>
       </div>
 
-      {/* 手機版下拉選單 Drawer */}
+      {/* 手機版下拉選單 Drawer (文案更新為：設定旅行習慣 / 淺色模式 或 深色模式) */}
       {isMobileMenuOpen && (
         <div className={`md:hidden sticky top-14 z-20 border-b p-4 shadow-lg ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
           <div className="flex items-center gap-2">
@@ -506,13 +496,13 @@ export default function Home() {
               onClick={() => setDarkMode(!darkMode)}
               className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition border flex items-center justify-center gap-1.5 ${darkMode ? 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700' : 'bg-slate-100 text-slate-800 border-slate-200 hover:bg-slate-200'}`}
             >
-              {darkMode ? '🌙 切換深色' : '☀️ 切換淺色'}
+              {darkMode ? '🌙 深色模式' : '☀️ 淺色模式'}
             </button>
           </div>
         </div>
       )}
 
-      {/* 🔴 手機版滑動至 AI 對話區時顯示的雙 CTA Sticky Bar */}
+      {/* 手機版滑動至 AI 對話區時顯示的雙 CTA Sticky Bar */}
       {isChatScrolled && (messages.length > 0 || loading) && (
         <div className={`md:hidden fixed top-14 left-0 right-0 z-20 px-4 py-2 border-b backdrop-blur-md transition-all shadow-sm ${
           darkMode ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-slate-200'
@@ -542,7 +532,7 @@ export default function Home() {
 
       <div className="flex flex-col md:flex-row items-start min-h-screen">
         
-        {/* 桌機版側邊欄 */}
+        {/* 桌機版側邊欄 (按鈕文案更新為：設定旅行習慣) */}
         <div className={`hidden md:flex md:w-64 md:h-screen md:sticky md:top-0 md:self-start border-r p-6 flex-col justify-between shrink-0 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
           <div>
             <h1 className={`text-xl font-bold flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
@@ -562,7 +552,7 @@ export default function Home() {
                 onClick={() => setIsPrefModalOpen(true)}
                 className={`w-full py-2.5 rounded-xl text-xs font-bold transition border shadow-sm flex items-center justify-center gap-1.5 ${darkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200'}`}
               >
-                ✏️ 設定我的旅行習慣
+                ✏️ 設定旅行習慣
               </button>
               <button
                 onClick={() => setDarkMode(!darkMode)}
@@ -705,7 +695,6 @@ export default function Home() {
           {(messages.length > 0 || loading) && (
             <div ref={chatSectionRef} className={`rounded-2xl shadow-sm border p-4 md:p-6 space-y-4 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
               
-              {/* 🔴 1. 核心修改：未滑動時，手機版區塊頁首右側僅置放「🔗 分享對話」；桌機版則顯示完整雙按鈕 */}
               <div ref={chatHeaderRef} className={`flex items-center justify-between border-b pb-2.5 pt-2 px-1 ${darkMode ? 'border-slate-800' : 'border-slate-100'}`}>
                 <span className={`font-bold text-sm flex items-center gap-1 shrink-0 ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
                   📍 專屬獨旅行程對話
