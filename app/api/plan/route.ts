@@ -40,18 +40,36 @@ ${prefText}
       })) || [])
     ];
 
-    // 目前 OpenRouter 完全免費且運作中的模型清單
-    const candidateModels = [
-      'google/gemini-2.0-flash-lite-001:free',
-      'google/gemini-2.0-pro-exp-02-05:free',
-      'meta-llama/llama-3.2-11b-vision-instruct:free',
-      'qwen/qwen-2.5-coder-32b-instruct:free'
-    ];
+    // 🟢 1. 動態取得 OpenRouter 當前此時此刻所有線上免費模型
+    let candidateModels: string[] = [];
+    try {
+      const modelsRes = await fetch('https://openrouter.ai/api/v1/models');
+      if (modelsRes.ok) {
+        const modelsData = await modelsRes.json();
+        candidateModels = (modelsData.data || [])
+          .filter((m: any) => m.id && m.id.endsWith(':free'))
+          .map((m: any) => m.id);
+      }
+    } catch (e) {
+      console.warn('動態獲取模型失敗:', e);
+    }
+
+    // 2. 若 OpenRouter 列表獲取異常，提供基礎備援
+    if (candidateModels.length === 0) {
+      candidateModels = [
+        'google/gemini-2.0-flash-lite-001:free',
+        'qwen/qwen-2.5-72b-instruct:free',
+        'openrouter/auto'
+      ];
+    }
+
+    // 優先輪詢前 5 個即時免費模型
+    const modelsToTry = candidateModels.slice(0, 5);
 
     let reply = '';
     let lastErrorMsg = '';
 
-    for (const model of candidateModels) {
+    for (const model of modelsToTry) {
       try {
         const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
           method: 'POST',
@@ -72,7 +90,7 @@ ${prefText}
           const content = data.choices?.[0]?.message?.content;
           if (content) {
             reply = content;
-            break;
+            break; // 成功即刻跳出
           }
         } else {
           const errText = await res.text();
