@@ -34,9 +34,15 @@ ${prefText}
 3. 請保持親切、專業且有條理的對話語氣。`;
 
     const genAI = new GoogleGenerativeAI(apiKey.trim());
-    
-    // 使用 Google AI Studio 標準免費模型的合規代號
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+    // 🟢 自動備援模型清單 (按權限與可用度依序嘗試)
+    const modelCandidates = [
+      'gemini-1.5-flash-latest',
+      'gemini-1.5-pro',
+      'gemini-1.5-flash',
+      'gemini-2.0-flash',
+      'gemini-1.5-flash-8b',
+    ];
 
     const contents = messages?.map((m: any, idx: number) => {
       let text = m.content;
@@ -49,11 +55,29 @@ ${prefText}
       };
     }) || [];
 
-    const result = await model.generateContent({ contents });
-    const reply = result.response.text();
+    let reply = '';
+    let lastError = '';
+
+    for (const modelName of modelCandidates) {
+      try {
+        const model = genAI.getGenerativeModel({ model: modelName });
+        const result = await model.generateContent({ contents });
+        const text = result.response.text();
+        if (text) {
+          reply = text;
+          break; // 只要有一個模型成功就立刻跳出
+        }
+      } catch (err: any) {
+        lastError = err?.message || String(err);
+        console.warn(`Gemini Model ${modelName} failed:`, lastError);
+      }
+    }
 
     if (!reply) {
-      return NextResponse.json({ error: 'AI 未能生成內容，請稍後再試' }, { status: 500 });
+      return NextResponse.json(
+        { error: `Google AI 服務暫時無法回應 (${lastError})，請稍後再試。` },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ reply });
