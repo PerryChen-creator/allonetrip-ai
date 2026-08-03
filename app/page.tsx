@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 
-// 輔助函式：將對話資料轉換為 URL 安全的 Base64 字串
+// 輔助函式：將對話資料轉換為輕量 URL 安全 Base64 字串
 function encodeShareData(data: any) {
   try {
     const jsonStr = JSON.stringify(data);
@@ -18,7 +18,7 @@ function encodeShareData(data: any) {
   }
 }
 
-// 輔助函式：從 URL Base64 字串還原對話資料
+// 輔助函式：從 URL Base64 字串還原對話資料（相容舊版與極簡新版格式）
 function decodeShareData(encoded: string) {
   try {
     let base64 = encoded.replace(/-/g, '+').replace(/_/g, '/');
@@ -31,7 +31,22 @@ function decodeShareData(encoded: string) {
       bytes[i] = binary.charCodeAt(i);
     }
     const jsonStr = new TextDecoder().decode(bytes);
-    return JSON.parse(jsonStr);
+    const data = JSON.parse(jsonStr);
+
+    // 解析極簡化 Key (d, s, e, st, m)
+    if (data.d !== undefined || data.m !== undefined) {
+      return {
+        destination: data.d || '',
+        startDate: data.s || '',
+        endDate: data.e || '',
+        style: data.st || '',
+        messages: (data.m || []).map((item: any) => ({
+          role: item.r === 'u' ? 'user' : 'assistant',
+          content: item.c || '',
+        })),
+      };
+    }
+    return data;
   } catch (e) {
     return null;
   }
@@ -304,18 +319,24 @@ export default function Home() {
     setLoading(false);
   };
 
+  // 🔴 2. 修改：去除大容量 Base64 圖片，採用短 Key 大幅壓縮分享 URL 長度
   const handleShare = async () => {
     if (messages.length === 0) {
       alert('目前尚無行程對話內容可分享喔！');
       return;
     }
 
+    const compactMessages = messages.map((m) => ({
+      r: m.role === 'user' ? 'u' : 'a',
+      c: m.content,
+    }));
+
     const payload = {
-      destination,
-      startDate,
-      endDate,
-      style,
-      messages,
+      d: destination,
+      s: startDate,
+      e: endDate,
+      st: style,
+      m: compactMessages,
     };
 
     const encoded = encodeShareData(payload);
@@ -420,7 +441,7 @@ export default function Home() {
         </button>
       </div>
 
-      {/* 🔴 手機版下拉選單 Drawer：將「設定習慣」與「切換主題」改為左右平行 1:1 佈局 */}
+      {/* 手機版下拉選單 Drawer */}
       {isMobileMenuOpen && (
         <div className={`md:hidden sticky top-14 z-20 border-b p-4 shadow-lg ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
           <div className="flex items-center gap-2">
@@ -442,7 +463,7 @@ export default function Home() {
 
       <div className="flex flex-col md:flex-row items-start min-h-screen">
         
-        {/* 桌機版側邊欄：同步提供簡潔平衡的獨立區塊 */}
+        {/* 桌機版側邊欄 */}
         <div className={`hidden md:flex md:w-64 md:h-screen md:sticky md:top-0 md:self-start border-r p-6 flex-col justify-between shrink-0 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
           <div>
             <h1 className={`text-xl font-bold flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
@@ -457,7 +478,6 @@ export default function Home() {
               @allonetrip_perry 專屬行程規劃
             </a>
 
-            {/* 🔴 桌機版雙按鈕區塊 */}
             <div className="flex flex-col gap-2 mt-6">
               <button
                 onClick={() => setIsPrefModalOpen(true)}
@@ -662,9 +682,9 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 追問輸入列 */}
+      {/* 🔴 1. 修改：懸浮底欄在桌機上改為 md:left-64，不再覆蓋左側邊欄區域 */}
       {(messages.length > 0 || loading) && (
-        <div className={`fixed bottom-0 left-0 right-0 z-40 border-t p-3 md:pl-72 md:pr-8 backdrop-blur-xl shadow-2xl transition-all ${
+        <div className={`fixed bottom-0 left-0 md:left-64 right-0 z-40 border-t p-3 md:px-8 backdrop-blur-xl shadow-2xl transition-all ${
           darkMode ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-slate-200'
         }`}>
           <div className="max-w-3xl mx-auto space-y-2">
