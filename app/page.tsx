@@ -240,7 +240,7 @@ export default function Home() {
               </label>
               <input
                 type="text"
-                placeholder="例如：日本環島、北歐極光之旅"
+                placeholder="例如：japan、關西環島"
                 value={destination}
                 onChange={(e) => setDestination(e.target.value)}
                 className="w-full px-4 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white bg-white dark:bg-slate-800 placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:ring-2 focus:ring-slate-800 outline-none text-sm font-medium transition"
@@ -306,6 +306,14 @@ export default function Home() {
             </button>
           </div>
 
+          {/* 🔴 補回原本被我漏掉的「與我聯繫」客製化橫幅 */}
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 flex flex-col items-center justify-center space-y-4">
+            <p className="text-sm font-bold text-slate-800 dark:text-slate-200">想要來場更客製化的旅程規劃嗎？</p>
+            <button className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white text-sm font-bold rounded-full shadow transition transform hover:scale-105">
+              💼 與我聯繫
+            </button>
+          </div>
+
           {/* 對話區塊 */}
           {(messages.length > 0 || loading) && (
             <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 space-y-4">
@@ -313,6 +321,11 @@ export default function Home() {
                 <span className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                   📍 專屬獨旅行程對話
                 </span>
+                
+                {/* 🔴 補回原本被我漏掉的「🔗 分享行程」按鈕 */}
+                <button className="text-sm font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition flex items-center gap-1">
+                  🔗 分享行程
+                </button>
               </div>
 
               <div className="space-y-4">
