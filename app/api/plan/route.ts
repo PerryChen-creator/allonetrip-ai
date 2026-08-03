@@ -11,7 +11,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { destination, days, startDate, endDate, style, messages, userPreferences } = await req.json();
+    const { destination, startDate, endDate, style, messages, userPreferences } = await req.json();
 
     const prefText = userPreferences ? `
 【使用者個人習慣與偏好設定】
@@ -22,37 +22,48 @@ export async function POST(req: Request) {
 ` : '';
 
     const systemPrompt = `你是一位專業且貼心的獨旅 AI 助手「Perry」(@allonetrip_perry)。
-你的任務是為使用者規劃極具個人化特色的獨立旅行行程。
+你的任務是為使用者規劃極具個人化特色的獨立旅行行程。如果使用者上傳了圖片，請結合圖片中的風景/文字進行分析與建議。
 
 ${prefText}
 
-【排版與輸出規範（請嚴格遵守原稿設計）】
-1. **開場**：親切歡迎，說明這是為使用者梳理出的【階段性骨架與必去核心地標】。
-2. **行程骨架結構**：
-   - 使用粗體區分階段（例如：**旅行行程規劃**、**第一階段：地區名稱**）。
-   - 禁止使用 \`####\` 或過深的 Header 標題。請統一使用粗體列表整理日期，例如：\`* **Day 1 ~ Day 7：高知**\`。
-3. **景點連結嵌入**：
-   - 所有景點、美食必須作為子清單，且直接將名稱嵌入 Google Maps 搜尋超連結，格式必須為：\`  * [高知城](https://www.google.com/maps/search/?api=1&query=高知城)\`。
-   - 絕對禁止獨立顯示 URL 網址，也禁止將連結拆成單獨一行。
-4. **旅行總結與結尾 CTA（必須包含）**：
-   - 行程最後必須包含「旅行總結」段落。
-   - 結尾必須附上固定結構的引導問答區塊，範例如下：
+【排版與輸出規範】
+1. **結構規範**：
+   - 請使用簡潔有條理的段落。
+   - 每個區域行程直接列出重點日期與地點，例如：
+     * **Day 1 ~ Day 7：關西地區（京都、大阪）**
+2. **景點連結嵌入**：
+   - 所有景點美食名稱，請務必包裹為 Markdown 超連結，格式如：[伏見稻荷大社](https://www.google.com/maps/search/?api=1&query=伏見稻荷大社)
+   - 絕對禁止在後方重複印出原始網址。
+3. **結尾 CTA 引導**：
+   - 行程最後必須包含結尾引導問答：
+     💡 **這趟行程接下來你想先規劃哪一部分？**
+     你可以隨時告訴 Perry：
+     1. 🔍 **展開詳細時刻表**：「幫我展開 Day X ~ Day Y 的每日景點與美食！」
+     2. 🏨 **獨旅住宿推薦**：「幫我推薦這幾天適合獨旅、安全又性價比高的住宿！」
+     3. ✈️ **機票與交通建議**：「我想諮詢最佳機票安排與交通套票！」`;
 
-💡 **這趟行程接下來你想先規劃哪一部分？**
-你可以隨時告訴 Perry：
-1. 🔍 **展開詳細時刻表**：「幫我展開 Day X ~ Day Y 的每日景點幾點分行程與必吃美食！」
-2. 🏨 **獨旅住宿推薦**：「幫我推薦這幾天適合獨旅、安全又性價比高的飯店或青年旅館！」
-3. ✈️ **機票與交通建議**：「我想諮詢最佳機票安排與交通套票！」`;
-
+    // 轉換對話訊息 (支援圖片 Context)
     const formattedMessages = [
       { role: 'system', content: systemPrompt },
-      ...(messages?.map((m: any) => ({
-        role: m.role === 'assistant' ? 'assistant' : 'user',
-        content: m.content
-      })) || [])
+      ...(messages?.map((m: any) => {
+        if (m.images && m.images.length > 0) {
+          const contentParts: any[] = [{ type: 'text', text: m.content }];
+          m.images.forEach((img: string) => {
+            contentParts.push({
+              type: 'image_url',
+              image_url: { url: img }
+            });
+          });
+          return { role: m.role === 'assistant' ? 'assistant' : 'user', content: contentParts };
+        }
+        return {
+          role: m.role === 'assistant' ? 'assistant' : 'user',
+          content: m.content
+        };
+      }) || [])
     ];
 
-    // 動態取得 OpenRouter 線上免費模型
+    // 動態獲取線上免費模型
     let candidateModels: string[] = [];
     try {
       const modelsRes = await fetch('https://openrouter.ai/api/v1/models');
@@ -67,19 +78,13 @@ ${prefText}
     }
 
     if (candidateModels.length === 0) {
-      candidateModels = [
-        'google/gemini-2.0-flash-lite-001:free',
-        'qwen/qwen-2.5-72b-instruct:free',
-        'openrouter/auto'
-      ];
+      candidateModels = ['google/gemini-2.0-flash-lite-001:free', 'openrouter/auto'];
     }
-
-    const modelsToTry = candidateModels.slice(0, 5);
 
     let reply = '';
     let lastErrorMsg = '';
 
-    for (const model of modelsToTry) {
+    for (const model of candidateModels.slice(0, 5)) {
       try {
         const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
           method: 'POST',
@@ -97,19 +102,10 @@ ${prefText}
 
         if (res.ok) {
           const data = await res.json();
-          const content = data.choices?.[0]?.message?.content;
-          if (content) {
-            reply = content;
-            break;
-          }
+          reply = data.choices?.[0]?.message?.content || '';
+          if (reply) break;
         } else {
-          const errText = await res.text();
-          try {
-            const errObj = JSON.parse(errText);
-            lastErrorMsg = errObj.error?.message || errText;
-          } catch {
-            lastErrorMsg = errText;
-          }
+          lastErrorMsg = await res.text();
         }
       } catch (err: any) {
         lastErrorMsg = err.message || String(err);
@@ -117,14 +113,11 @@ ${prefText}
     }
 
     if (!reply) {
-      return NextResponse.json(
-        { error: `AI 免費通道繁忙，請稍後重試。(${lastErrorMsg})` },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: `AI 服務繁忙，請稍後重試 (${lastErrorMsg})` }, { status: 500 });
     }
 
     return NextResponse.json({ reply });
   } catch (err: any) {
-    return NextResponse.json({ error: `伺服器內部錯誤: ${err.message || '未知錯誤'}` }, { status: 500 });
+    return NextResponse.json({ error: `伺服器錯誤: ${err.message || '未知錯誤'}` }, { status: 500 });
   }
 }
