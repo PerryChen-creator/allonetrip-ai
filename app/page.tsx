@@ -208,7 +208,16 @@ export default function Home() {
             <h1 className="text-xl font-bold flex items-center gap-2 text-slate-900 dark:text-white">
               🧳 獨旅 AI 幫手
             </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">@allonetrip_perry 專屬行程規劃</p>
+            
+            {/* 🔴 問題 3 修改：另開 IG 連結 */}
+            <a
+              href="https://www.instagram.com/allonetrip_perry/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-slate-500 hover:text-pink-600 dark:text-slate-400 dark:hover:text-pink-400 transition underline block mt-1"
+            >
+              @allonetrip_perry 專屬行程規劃
+            </a>
             
             <button
               onClick={() => setIsPrefModalOpen(true)}
@@ -232,18 +241,22 @@ export default function Home() {
 
         {/* 主內容區 */}
         <div className="flex-1 max-w-3xl mx-auto p-4 md:p-8 space-y-6">
+          
+          {/* 🔴 問題 2 修改：Light Mode 純白卡片、Dark Mode 深藍卡片 */}
           <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 space-y-4">
             
             <div>
               <label className="block text-sm font-bold text-slate-900 dark:text-slate-100 mb-1">
                 想去哪裡獨旅？
               </label>
+              
+              {/* 🔴 問題 1 修改：還原 Placeholder 原本的文案 */}
               <input
                 type="text"
-                placeholder="例如：japan、關西環島"
+                placeholder="例如：日本環島、北歐極光之旅"
                 value={destination}
                 onChange={(e) => setDestination(e.target.value)}
-                className="w-full px-4 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white bg-white dark:bg-slate-800 placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:ring-2 focus:ring-slate-800 outline-none text-sm font-medium transition"
+                className="w-full px-4 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white bg-white dark:bg-slate-800 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-slate-800 outline-none text-sm font-medium transition"
               />
             </div>
 
@@ -259,11 +272,13 @@ export default function Home() {
                 )}
               </div>
               
+              {/* 🔴 問題 4 修改：加上 style colorScheme，解決月曆 Icon 高對比度問題 */}
               <div className="grid grid-cols-2 gap-3">
                 <input
                   type="date"
                   min={todayStr}
                   value={startDate}
+                  style={{ colorScheme: darkMode ? 'dark' : 'light' }}
                   onChange={(e) => setStartDate(e.target.value)}
                   className="border border-slate-300 dark:border-slate-700 p-2.5 rounded-xl text-sm font-medium text-slate-900 dark:text-white bg-white dark:bg-slate-800 focus:ring-2 focus:ring-slate-800 outline-none"
                 />
@@ -271,6 +286,7 @@ export default function Home() {
                   type="date"
                   min={startDate || todayStr}
                   value={endDate}
+                  style={{ colorScheme: darkMode ? 'dark' : 'light' }}
                   onChange={(e) => setEndDate(e.target.value)}
                   className="border border-slate-300 dark:border-slate-700 p-2.5 rounded-xl text-sm font-medium text-slate-900 dark:text-white bg-white dark:bg-slate-800 focus:ring-2 focus:ring-slate-800 outline-none"
                 />
@@ -286,7 +302,7 @@ export default function Home() {
                 placeholder="例如：探索登山、夜生活，或貼上連結"
                 value={style}
                 onChange={(e) => setStyle(e.target.value)}
-                className="w-full px-4 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white bg-white dark:bg-slate-800 placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:ring-2 focus:ring-slate-800 outline-none text-sm font-medium transition"
+                className="w-full px-4 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white bg-white dark:bg-slate-800 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-slate-800 outline-none text-sm font-medium transition"
               />
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
                 可輸入旅遊喜好，或貼上 IG / YouTube 公開景點圖片或影片連結
@@ -306,12 +322,17 @@ export default function Home() {
             </button>
           </div>
 
-          {/* 🔴 補回原本被我漏掉的「與我聯繫」客製化橫幅 */}
+          {/* 🔴 問題 3 修改：與我聯繫按鈕另開 IG 頁面 */}
           <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 flex flex-col items-center justify-center space-y-4">
             <p className="text-sm font-bold text-slate-800 dark:text-slate-200">想要來場更客製化的旅程規劃嗎？</p>
-            <button className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white text-sm font-bold rounded-full shadow transition transform hover:scale-105">
+            <a
+              href="https://www.instagram.com/allonetrip_perry/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white text-sm font-bold rounded-full shadow transition transform hover:scale-105 inline-block"
+            >
               💼 與我聯繫
-            </button>
+            </a>
           </div>
 
           {/* 對話區塊 */}
@@ -321,8 +342,6 @@ export default function Home() {
                 <span className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                   📍 專屬獨旅行程對話
                 </span>
-                
-                {/* 🔴 補回原本被我漏掉的「🔗 分享行程」按鈕 */}
                 <button className="text-sm font-bold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition flex items-center gap-1">
                   🔗 分享行程
                 </button>
@@ -398,7 +417,7 @@ export default function Home() {
                     value={inputQuery}
                     onChange={(e) => setInputQuery(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleGenerate(inputQuery)}
-                    className="flex-1 px-4 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-medium text-slate-900 dark:text-white bg-white dark:bg-slate-800 placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:ring-2 focus:ring-slate-800 outline-none"
+                    className="flex-1 px-4 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-medium text-slate-900 dark:text-white bg-white dark:bg-slate-800 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-2 focus:ring-slate-800 outline-none"
                   />
 
                   <button
