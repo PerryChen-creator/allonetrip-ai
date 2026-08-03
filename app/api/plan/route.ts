@@ -35,8 +35,8 @@ ${prefText}
 
     const genAI = new GoogleGenerativeAI(apiKey.trim());
     
-    // 🟢 關鍵修正：使用目前 Google 官方最新且支援的免費模型代號
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    // 使用 Google AI Studio 標準免費模型的合規代號
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
     const contents = messages?.map((m: any, idx: number) => {
       let text = m.content;
