@@ -240,6 +240,14 @@ export default function Home() {
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // 🟢 原地編輯對話狀態 (In-place Editing)
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editingText, setEditingText] = useState('');
+
+  // 🟢 手機版對話區塊滾動偵測狀態 (Scroll-triggered Sticky CTAs)
+  const [isChatScrolled, setIsChatScrolled] = useState(false);
+  const chatSectionRef = useRef<HTMLDivElement>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatHeaderRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -271,6 +279,21 @@ export default function Home() {
 
     loadSharedData();
   }, []);
+
+  // 滾動偵測：僅當使用者滑動至對話區塊時，手機端 sticky bar 才會顯示
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!chatSectionRef.current) {
+        setIsChatScrolled(false);
+        return;
+      }
+      const rect = chatSectionRef.current.getBoundingClientRect();
+      setIsChatScrolled(rect.top <= 70 && rect.bottom > 180);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [messages.length]);
 
   useEffect(() => {
     if (messages.length > 0 && messages[messages.length - 1].role === 'assistant') {
@@ -320,15 +343,24 @@ export default function Home() {
     }
   };
 
-  const handleEditUserMessage = (index: number) => {
-    const targetMsg = messages[index];
-    if (!targetMsg || targetMsg.role !== 'user') return;
+  // 🟢 開啟原地編輯框
+  const handleStartEditMessage = (index: number, content: string) => {
+    setEditingIndex(index);
+    setEditingText(content);
+  };
 
-    setInputQuery(targetMsg.content);
-    if (targetMsg.images) {
-      setSelectedImages(targetMsg.images);
-    }
-    setMessages((prev) => prev.slice(0, index));
+  // 🟢 儲存原地編輯並直接發送給 AI 回覆
+  const handleSaveAndResubmit = (index: number) => {
+    if (!editingText.trim()) return;
+    const updatedUserMsg = {
+      role: 'user',
+      content: editingText,
+      images: messages[index]?.images,
+    };
+    const updatedMessages = [...messages.slice(0, index), updatedUserMsg];
+    setEditingIndex(null);
+    setEditingText('');
+    handleGenerate(undefined, updatedMessages);
   };
 
   const handleStopGeneration = () => {
@@ -378,19 +410,25 @@ export default function Home() {
     }
   };
 
-  const handleGenerate = async (queryText?: string) => {
-    const textToSend = queryText || inputQuery;
-    if (!textToSend.trim() && selectedImages.length === 0 && messages.length === 0) {
+  // 通用發送與重新生成處理
+  const handleGenerate = async (queryText?: string, customMsgList?: typeof messages) => {
+    const msgListToUse = customMsgList || messages;
+    const textToSend = queryText !== undefined ? queryText : inputQuery;
+
+    if (!textToSend.trim() && selectedImages.length === 0 && msgListToUse.length === 0) {
       if (isFormInvalid) return;
     }
 
     setLoading(true);
 
-    const userPrompt = textToSend || `我想去【${destination}】獨旅，日期：${startDate} 至 ${endDate}。請為我規劃行程！`;
-    const newMessages = [
-      ...messages,
-      { role: 'user', content: userPrompt, images: selectedImages }
-    ];
+    let newMessages = msgListToUse;
+    if (queryText !== undefined || (!customMsgList && inputQuery.trim())) {
+      const userPrompt = textToSend || `我想去【${destination}】獨旅，日期：${startDate} 至 ${endDate}。請為我規劃行程！`;
+      newMessages = [
+        ...msgListToUse,
+        { role: 'user', content: userPrompt, images: selectedImages },
+      ];
+    }
 
     setMessages(newMessages);
     setInputQuery('');
@@ -480,6 +518,34 @@ export default function Home() {
         </div>
       )}
 
+      {/* 🟢 2. 核心修改：手機版滾動至 AI 對話區塊時，頂部始出現的懸浮 Sticky Bar */}
+      {isChatScrolled && (messages.length > 0 || loading) && (
+        <div className={`md:hidden fixed top-14 left-0 right-0 z-20 px-4 py-2 border-b backdrop-blur-md transition-all shadow-sm ${
+          darkMode ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-slate-200'
+        }`}>
+          <div className="flex items-center justify-between gap-2 max-w-3xl mx-auto">
+            <button
+              onClick={handleShare}
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition border flex items-center justify-center gap-1.5 flex-1 ${
+                darkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200'
+              }`}
+            >
+              🔗 分享對話
+            </button>
+            <a
+              href="https://www.instagram.com/allonetrip_perry/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition border flex items-center justify-center gap-1.5 flex-1 ${
+                darkMode ? 'bg-pink-950/40 hover:bg-pink-900/50 text-pink-300 border-pink-800' : 'bg-pink-50 hover:bg-pink-100 text-pink-600 border-pink-200'
+              }`}
+            >
+              💼 與我聯繫
+            </a>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row items-start min-h-screen">
         
         {/* 桌機版側邊欄 */}
@@ -548,7 +614,6 @@ export default function Home() {
                 )}
               </div>
 
-              {/* 🟢 核心修正：跨裝置 100% 相容的日期選擇 Overlay Placeholder 結構 */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="relative w-full">
                   <input
@@ -644,18 +709,18 @@ export default function Home() {
 
           {/* 對話區塊 */}
           {(messages.length > 0 || loading) && (
-            <div className={`rounded-2xl shadow-sm border p-4 md:p-6 space-y-4 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+            <div ref={chatSectionRef} className={`rounded-2xl shadow-sm border p-4 md:p-6 space-y-4 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
               
-              {/* Sticky Bar */}
-              <div ref={chatHeaderRef} className={`flex items-center justify-between border-b pb-2.5 sticky top-14 md:top-0 backdrop-blur-md z-10 pt-2 px-1 ${darkMode ? 'border-slate-800 bg-slate-900/95' : 'border-slate-100 bg-white/95'}`}>
-                <span className={`hidden sm:flex font-bold text-sm items-center gap-1 shrink-0 ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
+              {/* 桌機對話頂欄 Header */}
+              <div ref={chatHeaderRef} className={`flex items-center justify-between border-b pb-2.5 pt-2 px-1 ${darkMode ? 'border-slate-800' : 'border-slate-100'}`}>
+                <span className={`font-bold text-sm flex items-center gap-1 shrink-0 ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
                   📍 專屬獨旅行程對話
                 </span>
                 
-                <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-2">
+                <div className="hidden sm:flex items-center gap-2">
                   <button
                     onClick={handleShare}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-xl transition border flex items-center justify-center gap-1.5 flex-1 sm:flex-initial ${darkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200'}`}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-xl transition border flex items-center justify-center gap-1.5 ${darkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200'}`}
                   >
                     🔗 分享對話
                   </button>
@@ -663,7 +728,7 @@ export default function Home() {
                     href="https://www.instagram.com/allonetrip_perry/"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`px-3 py-1.5 text-xs font-bold rounded-xl transition border flex items-center justify-center gap-1.5 flex-1 sm:flex-initial ${darkMode ? 'bg-pink-950/40 hover:bg-pink-900/50 text-pink-300 border-pink-800' : 'bg-pink-50 hover:bg-pink-100 text-pink-600 border-pink-200'}`}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-xl transition border flex items-center justify-center gap-1.5 ${darkMode ? 'bg-pink-950/40 hover:bg-pink-900/50 text-pink-300 border-pink-800' : 'bg-pink-50 hover:bg-pink-100 text-pink-600 border-pink-200'}`}
                   >
                     💼 與我聯繫
                   </a>
@@ -687,36 +752,69 @@ export default function Home() {
                         ? 'bg-blue-600 text-white font-medium'
                         : (darkMode ? 'bg-slate-800 border border-slate-700' : 'bg-slate-50 border border-slate-100')
                     }`}>
-                      {m.role === 'user' ? m.content : <MarkdownMessage content={m.content} darkMode={darkMode} />}
+                      
+                      {/* 🟢 1. 核心修改：原地編輯模式 (In-place Editing) */}
+                      {editingIndex === i ? (
+                        <div className="w-full space-y-2">
+                          <textarea
+                            value={editingText}
+                            onChange={(e) => setEditingText(e.target.value)}
+                            className="w-full p-3 rounded-xl border text-sm text-slate-900 bg-white dark:bg-slate-900 dark:text-white dark:border-slate-700 outline-none focus:ring-2 focus:ring-blue-400"
+                            rows={3}
+                          />
+                          <div className="flex justify-end gap-2 text-xs font-bold">
+                            <button
+                              onClick={() => {
+                                setEditingIndex(null);
+                                setEditingText('');
+                              }}
+                              className="px-3 py-1.5 rounded-lg bg-slate-200/80 text-slate-800 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600 transition"
+                            >
+                              取消
+                            </button>
+                            <button
+                              onClick={() => handleSaveAndResubmit(i)}
+                              className="px-3 py-1.5 rounded-lg bg-slate-900 text-white hover:bg-black dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100 transition shadow"
+                            >
+                              儲存並發送
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          {m.role === 'user' ? m.content : <MarkdownMessage content={m.content} darkMode={darkMode} />}
 
-                      {/* Gemini 風格訊息操作列 */}
-                      <div className={`flex items-center gap-1 mt-3 pt-2 border-t ${
-                        m.role === 'user'
-                          ? 'border-white/20 text-white/80 justify-end'
-                          : (darkMode ? 'border-slate-700/60 text-slate-400' : 'border-slate-200/80 text-slate-500')
-                      }`}>
-                        <button
-                          onClick={() => handleCopyMessage(m.content)}
-                          className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition"
-                          title="複製內容"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
-                        </button>
+                          {/* Gemini 風格訊息操作列 (位於訊息下方，純 Icon) */}
+                          <div className={`flex items-center gap-1 mt-3 pt-2 border-t ${
+                            m.role === 'user'
+                              ? 'border-white/20 text-white/80 justify-end'
+                              : (darkMode ? 'border-slate-700/60 text-slate-400' : 'border-slate-200/80 text-slate-500')
+                          }`}>
+                            <button
+                              onClick={() => handleCopyMessage(m.content)}
+                              className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition"
+                              title="複製內容"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                              </svg>
+                            </button>
 
-                        {m.role === 'user' && (
-                          <button
-                            onClick={() => handleEditUserMessage(i)}
-                            className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition"
-                            title="編輯訊息"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                            </svg>
-                          </button>
-                        )}
-                      </div>
+                            {m.role === 'user' && (
+                              <button
+                                onClick={() => handleStartEditMessage(i, m.content)}
+                                className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition"
+                                title="原地編輯對話"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      )}
+
                     </div>
                   </div>
                 ))}
