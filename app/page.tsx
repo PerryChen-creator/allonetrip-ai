@@ -70,7 +70,7 @@ function parseMarkdownText(text: string) {
 export default function Home() {
   const [darkMode, setDarkMode] = useState(false);
 
-  // 1. 旅行習慣 Modal 狀態與 LocalStorage 載入
+  // 旅行習慣 Modal 狀態與 LocalStorage 載入
   const [isPrefModalOpen, setIsPrefModalOpen] = useState(false);
   const [userPreferences, setUserPreferences] = useState({
     departureAirport: '台北桃園 TPE',
@@ -79,7 +79,6 @@ export default function Home() {
     customNotes: '',
   });
 
-  // 載入與儲存 LocalStorage 偏好
   useEffect(() => {
     const saved = localStorage.getItem('allonetrip_user_prefs');
     if (saved) {
@@ -96,13 +95,11 @@ export default function Home() {
     setIsPrefModalOpen(false);
   };
 
-  // 表單狀態
   const [destination, setDestination] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [style, setStyle] = useState('');
 
-  // 對話與圖片狀態
   const [messages, setMessages] = useState<Array<{ role: string; content: string; images?: string[] }>>([]);
   const [inputQuery, setInputQuery] = useState('');
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
@@ -182,7 +179,7 @@ export default function Home() {
           endDate,
           style,
           messages: newMessages,
-          userPreferences, // 附帶使用者偏好設定
+          userPreferences, 
         }),
       });
 
@@ -213,7 +210,6 @@ export default function Home() {
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">@allonetrip_perry 專屬行程規劃</p>
             
-            {/* 🔴 綁定開啟 Modal 事件 */}
             <button
               onClick={() => setIsPrefModalOpen(true)}
               className="mt-6 w-full py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-sm font-semibold transition border border-slate-200 dark:border-slate-700 shadow-sm"
@@ -237,13 +233,14 @@ export default function Home() {
         {/* 主內容區 */}
         <div className="flex-1 max-w-3xl mx-auto p-4 md:p-8 space-y-6">
           <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 space-y-4">
+            
             <div>
               <label className="block text-sm font-bold text-slate-900 dark:text-slate-100 mb-1">
                 想去哪裡獨旅？
               </label>
               <input
                 type="text"
-                placeholder="例如：japan、關西環島"
+                placeholder="例如：日本環島、北歐極光之旅"
                 value={destination}
                 onChange={(e) => setDestination(e.target.value)}
                 className="w-full px-4 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white bg-white dark:bg-slate-800 placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:ring-2 focus:ring-slate-800 outline-none text-sm font-medium transition"
@@ -291,6 +288,9 @@ export default function Home() {
                 onChange={(e) => setStyle(e.target.value)}
                 className="w-full px-4 py-2.5 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white bg-white dark:bg-slate-800 placeholder:text-slate-500 dark:placeholder:text-slate-400 focus:ring-2 focus:ring-slate-800 outline-none text-sm font-medium transition"
               />
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                可輸入旅遊喜好，或貼上 IG / YouTube 公開景點圖片或影片連結
+              </p>
             </div>
 
             <button
@@ -403,7 +403,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 🔴 「設定我的旅行習慣」 Modal 彈窗 */}
+      {/* 「設定我的旅行習慣」 Modal 彈窗 */}
       {isPrefModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
