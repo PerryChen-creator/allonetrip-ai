@@ -35,7 +35,7 @@ function parseInlineMarkdown(text: string) {
   });
 }
 
-// 高階 Markdown 渲染組件 (支援表格、標題、清單與內聯連結)
+// 高階 Markdown 渲染組件
 function MarkdownMessage({ content }: { content: string }) {
   const lines = content.split('\n');
   const elements: React.ReactNode[] = [];
@@ -133,6 +133,7 @@ function MarkdownMessage({ content }: { content: string }) {
 
 export default function Home() {
   const [darkMode, setDarkMode] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // 🟢 手機漢堡選單開關
 
   const [isPrefModalOpen, setIsPrefModalOpen] = useState(false);
   const [userPreferences, setUserPreferences] = useState({
@@ -277,10 +278,62 @@ export default function Home() {
 
   return (
     <div className={`min-h-screen transition-colors duration-200 ${darkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+      
+      {/* 🟢 1. 手機版頂部 Header 與 漢堡選單 (解決圖二問題) */}
+      <div className="md:hidden sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between shadow-sm">
+        <div>
+          <h1 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+            🧳 獨旅 AI 幫手
+          </h1>
+          <a
+            href="https://www.instagram.com/allonetrip_perry/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[10px] text-slate-500 dark:text-slate-400 underline"
+          >
+            @allonetrip_perry 專屬行程規劃
+          </a>
+        </div>
+
+        {/* 漢堡按鈕 */}
+        <button
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="p-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition border border-slate-200 dark:border-slate-700"
+          aria-label="選單"
+        >
+          {isMobileMenuOpen ? '✕' : '☰'}
+        </button>
+      </div>
+
+      {/* 手機版下拉選單 Drawer */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden sticky top-[57px] z-20 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-4 space-y-3 shadow-lg">
+          <button
+            onClick={() => {
+              setIsPrefModalOpen(true);
+              setIsMobileMenuOpen(false);
+            }}
+            className="w-full py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold transition border border-slate-200 dark:border-slate-700"
+          >
+            ✏️ 設定我的旅行習慣
+          </button>
+
+          <div className="flex items-center justify-between pt-1">
+            <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">切換主題模式</span>
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full text-sm"
+            >
+              {darkMode ? '🌙 深色' : '☀️ 淺色'}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row min-h-screen">
         
-        {/* 側邊欄 */}
-        <div className="w-full md:w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 p-6 flex flex-col justify-between">
+        {/* 🟢 2. 桌機版側邊欄 (解決圖三問題：md:h-screen md:sticky md:top-0 鎖定高度不向下長伸) */}
+        <div className="hidden md:flex md:w-64 md:h-screen md:sticky md:top-0 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 p-6 flex-col justify-between shrink-0">
           <div>
             <h1 className="text-xl font-bold flex items-center gap-2 text-slate-900 dark:text-white">
               🧳 獨旅 AI 幫手
@@ -408,27 +461,29 @@ export default function Home() {
 
           {/* 對話區塊 */}
           {(messages.length > 0 || loading) && (
-            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 space-y-4">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-4 md:p-6 space-y-4">
               
-              <div ref={chatHeaderRef} className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-3 sticky top-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm z-10">
-                <span className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              {/* 🟢 3. 重新優化 Sticky 對話頂欄 (解決圖一問題：絕不擠壓排版) */}
+              <div ref={chatHeaderRef} className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 sticky top-[57px] md:top-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md z-10 pt-1">
+                <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100 flex items-center gap-1 shrink-0">
                   📍 專屬獨旅行程對話
                 </span>
                 
-                <div className="flex items-center gap-2">
+                {/* 手機/桌機精簡雙按鈕 */}
+                <div className="flex items-center gap-1.5 shrink-0">
                   <button
                     onClick={handleShare}
-                    className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-lg transition border border-slate-200 dark:border-slate-700 flex items-center gap-1"
+                    className="px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-lg transition border border-slate-200 dark:border-slate-700 flex items-center gap-1"
                   >
-                    🔗 分享行程
+                    🔗 <span className="hidden sm:inline">分享行程</span><span className="sm:hidden">分享</span>
                   </button>
                   <a
                     href="https://www.instagram.com/allonetrip_perry/"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="px-3 py-1.5 bg-pink-50 dark:bg-pink-950/40 hover:bg-pink-100 dark:hover:bg-pink-900/50 text-pink-600 dark:text-pink-300 text-xs font-bold rounded-lg transition border border-pink-200 dark:border-pink-800 flex items-center gap-1"
+                    className="px-2.5 py-1.5 bg-pink-50 dark:bg-pink-950/40 hover:bg-pink-100 dark:hover:bg-pink-900/50 text-pink-600 dark:text-pink-300 text-xs font-bold rounded-lg transition border border-pink-200 dark:border-pink-800 flex items-center gap-1"
                   >
-                    💼 與我聯繫
+                    💼 <span className="hidden sm:inline">與我聯繫</span><span className="sm:hidden">聯繫</span>
                   </a>
                 </div>
               </div>
@@ -498,7 +553,6 @@ export default function Home() {
                     📎
                   </button>
 
-                  {/* 🟢 核心修復：防止注音/拼音選字 Enter 誤發送 */}
                   <input
                     type="text"
                     placeholder="問問 Perry...（例如：展開 Day 1-5 的細節，或附圖詢問）"
@@ -528,7 +582,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Modal 彈窗 */}
+      {/* 「設定我的旅行習慣」 Modal 彈窗 */}
       {isPrefModalOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
