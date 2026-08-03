@@ -2,6 +2,41 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 
+// 輔助函式：將對話資料轉換為 URL 安全的 Base64 字串
+function encodeShareData(data: any) {
+  try {
+    const jsonStr = JSON.stringify(data);
+    const utf8Bytes = new TextEncoder().encode(jsonStr);
+    let binary = '';
+    utf8Bytes.forEach((b) => (binary += String.fromCharCode(b)));
+    return btoa(binary)
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+  } catch (e) {
+    return '';
+  }
+}
+
+// 輔助函式：從 URL Base64 字串還原對話資料
+function decodeShareData(encoded: string) {
+  try {
+    let base64 = encoded.replace(/-/g, '+').replace(/_/g, '/');
+    while (base64.length % 4) {
+      base64 += '=';
+    }
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    const jsonStr = new TextDecoder().decode(bytes);
+    return JSON.parse(jsonStr);
+  } catch (e) {
+    return null;
+  }
+}
+
 // 輔助函式：解析文字中的 [連結](URL) 與 **粗體**
 function parseInlineMarkdown(text: string, darkMode: boolean) {
   const regex = /(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g;
@@ -184,6 +219,21 @@ export default function Home() {
     const month = String(today.getMonth() + 1).padStart(2, '0');
     const day = String(today.getDate()).padStart(2, '0');
     setTodayStr(`${year}-${month}-${day}`);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const shareParam = urlParams.get('share');
+    if (shareParam) {
+      const decodedData = decodeShareData(shareParam);
+      if (decodedData) {
+        if (decodedData.destination) setDestination(decodedData.destination);
+        if (decodedData.startDate) setStartDate(decodedData.startDate);
+        if (decodedData.endDate) setEndDate(decodedData.endDate);
+        if (decodedData.style) setStyle(decodedData.style);
+        if (decodedData.messages && Array.isArray(decodedData.messages)) {
+          setMessages(decodedData.messages);
+        }
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -227,38 +277,37 @@ export default function Home() {
     setSelectedImages((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // 🟢 2. 核心修改：打包分享真實對話內容
   const handleShare = async () => {
     if (messages.length === 0) {
       alert('目前尚無行程對話內容可分享喔！');
       return;
     }
 
-    const dialogueText = messages
-      .map((m) => `${m.role === 'user' ? '👤 旅人' : '🧳 Perry AI'}:\n${m.content}`)
-      .join('\n\n------------------------\n\n');
+    const payload = {
+      destination,
+      startDate,
+      endDate,
+      style,
+      messages,
+    };
 
-    const shareContent = `🧳【AllOneTrip AI 獨旅行程對話紀錄】\n目的地：${destination || '未指定'}\n日期：${startDate} ~ ${endDate}\n\n${dialogueText}\n\n👉 體驗 Perry 獨旅 AI 幫手：${window.location.href}`;
-
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `🧳 Perry AI 獨旅行程分享：${destination}`,
-          text: shareContent,
-        });
-        return;
-      } catch (e) {
-        // 使用者取消分享時不動作
-      }
+    const encoded = encodeShareData(payload);
+    if (!encoded) {
+      alert('打包對話資料失敗，請重試');
+      return;
     }
+
+    const shareUrl = `${window.location.origin}${window.location.pathname}?share=${encoded}`;
 
     if (navigator.clipboard) {
       try {
-        await navigator.clipboard.writeText(shareContent);
-        alert('已成功將整份「行程與 AI 對話內容」複製至剪貼簿，可以直接貼給朋友喔！');
+        await navigator.clipboard.writeText(shareUrl);
+        alert('✨ 已為你生成專屬對話連結並複製至剪貼簿！\n朋友點開連結即可直接瀏覽這份完整的行程對話。');
       } catch (err) {
-        alert('複製失敗，請重試');
+        prompt('請複製以下專屬對話網址分享給朋友：', shareUrl);
       }
+    } else {
+      prompt('請複製以下專屬對話網址分享給朋友：', shareUrl);
     }
   };
 
@@ -312,8 +361,8 @@ export default function Home() {
   return (
     <div className={`min-h-screen transition-colors duration-200 ${darkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
       
-      {/* 手機版頂部 Header */}
-      <div className={`md:hidden sticky top-0 z-30 backdrop-blur-md border-b px-4 py-2.5 flex items-center justify-between shadow-sm ${darkMode ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-slate-200'}`}>
+      {/* 🟢 手機版頂部 Header：精準固定高度 h-14 (56px) 且置頂 z-30 */}
+      <div className={`md:hidden sticky top-0 h-14 z-30 backdrop-blur-md border-b px-4 flex items-center justify-between shadow-sm ${darkMode ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-slate-200'}`}>
         <div>
           <h1 className={`text-base font-bold flex items-center gap-1.5 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
             🧳 獨旅 AI 幫手
@@ -335,9 +384,9 @@ export default function Home() {
         </button>
       </div>
 
-      {/* 手機版下拉選單 */}
+      {/* 手機版下拉選單 Drawer */}
       {isMobileMenuOpen && (
-        <div className={`md:hidden sticky top-[53px] z-20 border-b p-4 space-y-3 shadow-lg ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+        <div className={`md:hidden sticky top-14 z-20 border-b p-4 space-y-3 shadow-lg ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
           <button
             onClick={() => { setIsPrefModalOpen(true); setIsMobileMenuOpen(false); }}
             className={`w-full py-2.5 rounded-xl text-xs font-bold transition border ${darkMode ? 'bg-slate-800 text-slate-200 border-slate-700' : 'bg-slate-100 text-slate-800 border-slate-200'}`}
@@ -485,13 +534,13 @@ export default function Home() {
           {(messages.length > 0 || loading) && (
             <div className={`rounded-2xl shadow-sm border p-4 md:p-6 space-y-4 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
               
-              {/* 🟢 1. 核心修改：手機版 Sticky Bar 移除無謂的標題，留空給按鈕置頂 */}
-              <div ref={chatHeaderRef} className={`flex items-center justify-between border-b pb-2.5 sticky top-[53px] md:top-0 backdrop-blur-md z-10 pt-2 px-1 ${darkMode ? 'border-slate-800 bg-slate-900/95' : 'border-slate-100 bg-white/95'}`}>
+              {/* 🟢 核心修改：手機端頂部偏移精準設定為 top-14 (56px)，絕不與最頂部 Header 遮擋重疊 */}
+              <div ref={chatHeaderRef} className={`flex items-center justify-between border-b pb-2.5 sticky top-14 md:top-0 backdrop-blur-md z-10 pt-2 px-1 ${darkMode ? 'border-slate-800 bg-slate-900/95' : 'border-slate-100 bg-white/95'}`}>
                 <span className={`hidden sm:flex font-bold text-sm items-center gap-1 shrink-0 ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
                   📍 專屬獨旅行程對話
                 </span>
                 
-                {/* 雙 CTA 按鈕區 (手機端平分平鋪) */}
+                {/* 雙 CTA 按鈕區 */}
                 <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-2">
                   <button
                     onClick={handleShare}
@@ -567,7 +616,6 @@ export default function Home() {
                     className="hidden"
                   />
 
-                  {/* 📎 附件圖示 (與輸入框、發送鈕同高等寬) */}
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
@@ -591,7 +639,6 @@ export default function Home() {
                     className={`flex-1 h-11 px-4 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 border ${darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500'}`}
                   />
 
-                  {/* 🟢 3. 核心修改：Gemini 風格向上箭頭發送按鈕 (高度 h-11 與輸入框完美切齊) */}
                   <button
                     onClick={() => handleGenerate(inputQuery)}
                     disabled={loading || (!inputQuery.trim() && selectedImages.length === 0)}
