@@ -2,11 +2,11 @@ import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.OPENROUTER_API_KEY;
 
     if (!apiKey) {
       return NextResponse.json(
-        { error: '伺服器未設定 GEMINI_API_KEY，請至 Vercel Dashboard 設定環境變數' },
+        { error: '伺服器未設定 OPENROUTER_API_KEY，請至 Vercel Dashboard 設定環境變數' },
         { status: 500 }
       );
     }
@@ -32,51 +32,55 @@ ${prefText}
    [景點名稱](https://www.google.com/maps/search/?api=1&query=LocationName)
 3. 請保持親切、專業且有條理的對話語氣。`;
 
-    const formattedMessages = messages?.map((m: any, idx: number) => {
-      let text = m.content;
-      if (idx === 0 && m.role === 'user') {
-        text = `${systemPrompt}\n\n${m.content}`;
-      }
-      return {
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text }]
-      };
-    }) || [];
+    const formattedMessages = [
+      { role: 'system', content: systemPrompt },
+      ...(messages?.map((m: any) => ({
+        role: m.role === 'assistant' ? 'assistant' : 'user',
+        content: m.content
+      })) || [])
+    ];
 
-    // 🟢 使用正式版 v1 端點，避免 v1beta 的 404/429 限制
-    const endpoints = [
-      'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent',
-      'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent',
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent',
+    // OpenRouter 穩定可用免費模型清單
+    const freeModels = [
+      'google/gemini-2.0-flash-lite-001:free',
+      'meta-llama/llama-3.3-70b-instruct:free',
+      'google/gemini-2.0-flash-exp:free'
     ];
 
     let reply = '';
-    let lastErrorText = '';
+    let lastError = '';
 
-    for (const endpoint of endpoints) {
+    for (const model of freeModels) {
       try {
-        const res = await fetch(`${endpoint}?key=${apiKey.trim()}`, {
+        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents: formattedMessages }),
+          headers: {
+            'Authorization': `Bearer ${apiKey.trim()}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://allonetrip-ai.vercel.app',
+            'X-Title': 'AllOneTrip AI',
+          },
+          body: JSON.stringify({
+            model,
+            messages: formattedMessages,
+          }),
         });
 
         if (res.ok) {
           const data = await res.json();
-          reply = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          reply = data.choices?.[0]?.message?.content || '';
           if (reply) break;
         } else {
-          lastErrorText = await res.text();
-          console.warn(`Endpoint ${endpoint} failed:`, lastErrorText);
+          lastError = await res.text();
         }
       } catch (err: any) {
-        lastErrorText = err.message;
+        lastError = err.message;
       }
     }
 
     if (!reply) {
       return NextResponse.json(
-        { error: `Google API 服務暫時無法回應: ${lastErrorText}` },
+        { error: `AI 服務回應失敗: ${lastError}` },
         { status: 500 }
       );
     }
