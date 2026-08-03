@@ -211,7 +211,7 @@ export default function Home() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatHeaderRef = useRef<HTMLDivElement>(null);
-  const abortControllerRef = useRef<AbortController | null>(null); // 🟢 1. 暫停 AI 功能 Controller
+  const abortControllerRef = useRef<AbortController | null>(null);
   const [todayStr, setTodayStr] = useState('');
 
   useEffect(() => {
@@ -278,7 +278,6 @@ export default function Home() {
     setSelectedImages((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // 🟢 2. 複製對話訊息
   const handleCopyMessage = (content: string) => {
     if (navigator.clipboard) {
       navigator.clipboard.writeText(content);
@@ -286,7 +285,6 @@ export default function Home() {
     }
   };
 
-  // 🟢 3. 編輯我的對話
   const handleEditUserMessage = (index: number) => {
     const targetMsg = messages[index];
     if (!targetMsg || targetMsg.role !== 'user') return;
@@ -295,11 +293,9 @@ export default function Home() {
     if (targetMsg.images) {
       setSelectedImages(targetMsg.images);
     }
-    // 刪除此訊息及其後的所有對話，以便重新發送
     setMessages((prev) => prev.slice(0, index));
   };
 
-  // 🟢 4. 暫停 AI 生成
   const handleStopGeneration = () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -360,7 +356,6 @@ export default function Home() {
     setInputQuery('');
     setSelectedImages([]);
 
-    // 初始化 AbortController
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
@@ -611,32 +606,44 @@ export default function Home() {
                       </div>
                     )}
                     
-                    <div className={`relative p-4 rounded-2xl max-w-[95%] text-sm group ${
+                    <div className={`p-4 rounded-2xl max-w-[95%] text-sm ${
                       m.role === 'user'
                         ? 'bg-blue-600 text-white font-medium'
                         : (darkMode ? 'bg-slate-800 border border-slate-700' : 'bg-slate-50 border border-slate-100')
                     }`}>
-                      {/* 🟢 訊息功能操作列（複製文字 / 編輯訊息） */}
-                      <div className="flex items-center gap-2 mb-2 pb-1 border-b border-white/10 dark:border-slate-700/50 text-xs">
+                      {/* 訊息內容 */}
+                      {m.role === 'user' ? m.content : <MarkdownMessage content={m.content} darkMode={darkMode} />}
+
+                      {/* 🟢 操作按鈕列：Gemini 風格（位於訊息下方，純 Icon） */}
+                      <div className={`flex items-center gap-1 mt-3 pt-2 border-t ${
+                        m.role === 'user'
+                          ? 'border-white/20 text-white/80 justify-end'
+                          : (darkMode ? 'border-slate-700/60 text-slate-400' : 'border-slate-200/80 text-slate-500')
+                      }`}>
+                        {/* 複製按鈕 */}
                         <button
                           onClick={() => handleCopyMessage(m.content)}
-                          className="hover:underline flex items-center gap-1 opacity-80 hover:opacity-100 transition"
-                          title="複製文字"
+                          className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition"
+                          title="複製內容"
                         >
-                          📋 複製
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
                         </button>
+
+                        {/* 編輯按鈕 (僅使用者訊息顯示) */}
                         {m.role === 'user' && (
                           <button
                             onClick={() => handleEditUserMessage(i)}
-                            className="hover:underline flex items-center gap-1 opacity-80 hover:opacity-100 transition ml-2"
-                            title="修改並重新發送這條問題"
+                            className="p-1.5 rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition"
+                            title="編輯訊息"
                           >
-                            ✏️ 編輯
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
                           </button>
                         )}
                       </div>
-
-                      {m.role === 'user' ? m.content : <MarkdownMessage content={m.content} darkMode={darkMode} />}
                     </div>
                   </div>
                 ))}
@@ -654,7 +661,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 🟢 5. 核心修改：追問輸入列全畫置底固定 (Fixed Bottom Bar) */}
+      {/* 追問輸入列（固定底端） */}
       {(messages.length > 0 || loading) && (
         <div className={`fixed bottom-0 left-0 right-0 z-40 border-t p-3 md:pl-72 md:pr-8 backdrop-blur-xl shadow-2xl transition-all ${
           darkMode ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-slate-200'
@@ -695,7 +702,6 @@ export default function Home() {
                 📎
               </button>
 
-              {/* 手機版精簡輸入框 */}
               <input
                 type="text"
                 placeholder="問問 Perry..."
@@ -710,7 +716,6 @@ export default function Home() {
                 className={`sm:hidden flex-1 h-11 px-3.5 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 border ${darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500'}`}
               />
 
-              {/* 桌機版輸入框 */}
               <input
                 type="text"
                 placeholder="問問 Perry...（例如：展開 Day 1-5 的細節，或附圖詢問）"
@@ -725,7 +730,6 @@ export default function Home() {
                 className={`hidden sm:block flex-1 h-11 px-4 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 border ${darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500'}`}
               />
 
-              {/* 🟢 暫停 / 發送動態按鈕 */}
               {loading ? (
                 <button
                   onClick={handleStopGeneration}
