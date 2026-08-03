@@ -38,7 +38,6 @@ function MarkdownMessage({ content }: { content: string }) {
 
 // 輔助函式：將 [文字](URL) 轉為 <a> 標籤，**粗體** 轉為 <strong>
 function parseMarkdownText(text: string) {
-  // 正則表達式匹配 [title](url) 與 **bold**
   const regex = /(\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g;
   const parts = text.split(regex);
 
@@ -93,6 +92,9 @@ export default function Home() {
     return diffDays > 0 ? diffDays : null;
   };
 
+  // 判斷按鈕是否需要停用
+  const isFormInvalid = !destination.trim() || !startDate || !endDate;
+
   // 處理圖片選擇 (上限 5 張)
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -122,7 +124,7 @@ export default function Home() {
   const handleGenerate = async (queryText?: string) => {
     const textToSend = queryText || inputQuery;
     if (!textToSend.trim() && selectedImages.length === 0 && messages.length === 0) {
-      if (!destination) return alert('請輸入想去的目的地！');
+      if (isFormInvalid) return;
     }
 
     setLoading(true);
@@ -217,8 +219,12 @@ export default function Home() {
 
           <button
             onClick={() => handleGenerate()}
-            disabled={loading}
-            className="w-full py-3 bg-slate-900 hover:bg-black text-white font-medium rounded-xl shadow transition"
+            disabled={loading || isFormInvalid}
+            className={`w-full py-3 font-medium rounded-xl shadow transition ${
+              loading || isFormInvalid
+                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : 'bg-slate-900 hover:bg-black text-white'
+            }`}
           >
             {loading ? 'Perry 正在思考中，請稍等...' : '一鍵生成專屬行程 ✨'}
           </button>
@@ -234,7 +240,6 @@ export default function Home() {
           <div className="space-y-4 min-h-[200px]">
             {messages.map((m, i) => (
               <div key={i} className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
-                {/* 顯示用戶上傳的圖片 */}
                 {m.images && m.images.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-2">
                     {m.images.map((img, imgIdx) => (
@@ -248,7 +253,6 @@ export default function Home() {
               </div>
             ))}
 
-            {/* 🔴 問題 1 修改：更口語化的載入文字 */}
             {loading && (
               <div className="flex items-center space-x-2 text-gray-500 bg-gray-50 p-4 rounded-2xl border w-fit">
                 <span className="animate-pulse">🔵</span>
@@ -257,9 +261,8 @@ export default function Home() {
             )}
           </div>
 
-          {/* 🔴 問題 2 修改：包含圖片上傳按鈕的輸入區 */}
+          {/* 對話輸入與圖片上傳區 */}
           <div className="space-y-2 pt-2">
-            {/* 圖片預覽縮圖 */}
             {selectedImages.length > 0 && (
               <div className="flex gap-2 p-2 bg-gray-50 rounded-xl border border-dashed border-gray-300">
                 {selectedImages.map((img, idx) => (
@@ -277,7 +280,6 @@ export default function Home() {
             )}
 
             <div className="flex items-center gap-2">
-              {/* 隱藏的 File Input */}
               <input
                 type="file"
                 ref={fileInputRef}
@@ -287,7 +289,6 @@ export default function Home() {
                 className="hidden"
               />
 
-              {/* 圖片上傳按鈕 */}
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
