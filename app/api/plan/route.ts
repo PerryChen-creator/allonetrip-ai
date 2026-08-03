@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export async function POST(req: Request) {
   try {
@@ -33,55 +32,57 @@ ${prefText}
    [景點名稱](https://www.google.com/maps/search/?api=1&query=LocationName)
 3. 請保持親切、專業且有條理的對話語氣。`;
 
-    const genAI = new GoogleGenerativeAI(apiKey.trim());
-
-    // 🟢 自動備援模型清單 (按權限與可用度依序嘗試)
-    const modelCandidates = [
-      'gemini-1.5-flash-latest',
-      'gemini-1.5-pro',
-      'gemini-1.5-flash',
-      'gemini-2.0-flash',
-      'gemini-1.5-flash-8b',
-    ];
-
-    const contents = messages?.map((m: any, idx: number) => {
+    const formattedMessages = messages?.map((m: any, idx: number) => {
       let text = m.content;
       if (idx === 0 && m.role === 'user') {
         text = `${systemPrompt}\n\n${m.content}`;
       }
       return {
         role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text }],
+        parts: [{ text }]
       };
     }) || [];
 
-    let reply = '';
-    let lastError = '';
+    // 🟢 使用正式版 v1 端點，避免 v1beta 的 404/429 限制
+    const endpoints = [
+      'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent',
+      'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent',
+    ];
 
-    for (const modelName of modelCandidates) {
+    let reply = '';
+    let lastErrorText = '';
+
+    for (const endpoint of endpoints) {
       try {
-        const model = genAI.getGenerativeModel({ model: modelName });
-        const result = await model.generateContent({ contents });
-        const text = result.response.text();
-        if (text) {
-          reply = text;
-          break; // 只要有一個模型成功就立刻跳出
+        const res = await fetch(`${endpoint}?key=${apiKey.trim()}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: formattedMessages }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          reply = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          if (reply) break;
+        } else {
+          lastErrorText = await res.text();
+          console.warn(`Endpoint ${endpoint} failed:`, lastErrorText);
         }
       } catch (err: any) {
-        lastError = err?.message || String(err);
-        console.warn(`Gemini Model ${modelName} failed:`, lastError);
+        lastErrorText = err.message;
       }
     }
 
     if (!reply) {
       return NextResponse.json(
-        { error: `Google AI 服務暫時無法回應 (${lastError})，請稍後再試。` },
+        { error: `Google API 服務暫時無法回應: ${lastErrorText}` },
         { status: 500 }
       );
     }
 
     return NextResponse.json({ reply });
   } catch (err: any) {
-    return NextResponse.json({ error: `Google API 錯誤: ${err.message || '伺服器內部錯誤'}` }, { status: 500 });
+    return NextResponse.json({ error: `伺服器內部錯誤: ${err.message || '未知錯誤'}` }, { status: 500 });
   }
 }
