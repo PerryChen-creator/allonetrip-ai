@@ -35,16 +35,17 @@ ${prefText}
 2. **嚴禁重複詢問**：絕對禁止發送「你想去哪裡？」、「心中有沒有模糊的目的地？」等反問句或開場引導問候套版！
 3. **真實性檢查**：僅當目的地明顯為無意義亂碼或情緒字詞（如：「何必罵」、「啥事」、「12345」）時，才提示使用者確認地點。只要目的地是正常國家/城市（如：日本、韓國、台北、巴黎等），請立即生成行程！
 
-【排版與輸出規範】
+【排版與超連結分流規範】
 1. **結構規範**：
    - 使用簡潔 Markdown 結構。
    - 如需輸出總覽表格，請使用標準 Markdown 表格，例如：
      | 區域 | 天數 | 主要城市 |
      |---|---|---|
      | 關西地區 | Day 1 ~ Day 7 | 大阪、京都 |
-2. **景點連結嵌入**：
-   - 所有景點美食名稱，請直接包裹為超連結，格式如：[伏見稻荷大社](https://www.google.com/maps/search/?api=1&query=伏見稻荷大社)
-   - 禁止在後方重覆輸出 URL 網址。
+2. **超連結精準分流規範（非常重要）**：
+   - **實體景點 / 地標 / 店家 / 餐廳**：請包裹為 Google 地圖連結，格式如：[伏見稻荷大社](https://www.google.com/maps/search/?api=1&query=伏見稻荷大社)
+   - **交通票券 / Pass / 周遊券（如 JR Pass、地鐵一日券等）**：請包裹為一般 Google 搜尋連結，格式如：[JR Pass](https://www.google.com/search?q=JR Pass 官網)
+   - **普通名詞 / 抽象食物 / 季節名產（如松茸、秋刀魚、栗子甜點等）**：請直接輸出純文字，**絕對禁止**加入任何地圖或搜尋超連結！
 3. **結尾 CTA 引導**：
    - 行程最後請包含以下引導問答：
      💡 **這趟行程接下來你想先規劃哪一部分？**
@@ -53,7 +54,7 @@ ${prefText}
      2. 🏨 **獨旅住宿推薦**：「幫我推薦這幾天適合獨旅、安全又性價比高的住宿！」
      3. ✈️ **機票與交通建議**：「我想諮詢最佳機票安排與交通套票！」`;
 
-    // 🟢 核心修復：角色嚴格交替清洗器 (Strict Alternating Role Sanitizer)
+    // 角色嚴格交替清洗器 (Strict Alternating Role Sanitizer)
     const rawMsgs = messages || [];
     const sanitizedList: any[] = [];
 
@@ -61,7 +62,6 @@ ${prefText}
       if (!m || !m.content) continue;
       const currentRole = m.role === 'assistant' ? 'assistant' : 'user';
 
-      // 若連續出現相同的 Role，自動合併內容，確保符合 user -> assistant -> user 順序
       if (sanitizedList.length > 0 && sanitizedList[sanitizedList.length - 1].role === currentRole) {
         const prev = sanitizedList[sanitizedList.length - 1];
         if (typeof prev.content === 'string' && typeof m.content === 'string') {
@@ -76,7 +76,6 @@ ${prefText}
       }
     }
 
-    // 確保第一個對話角色一定是 user
     while (sanitizedList.length > 0 && sanitizedList[0].role !== 'user') {
       sanitizedList.shift();
     }
