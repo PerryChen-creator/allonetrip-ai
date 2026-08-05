@@ -450,13 +450,17 @@ export default function Home() {
       if (res.ok) {
         setMessages((prev) => [...prev, { role: 'assistant', content: data.reply }]);
       } else {
-        alert(data.error || '發生錯誤，請稍後重試');
+        let friendlyErr = data.error || '服務連線異常，請稍後重試！';
+        if (typeof friendlyErr === 'string' && (friendlyErr.includes('{') || friendlyErr.includes('Provider returned error'))) {
+          friendlyErr = 'AI 服務連線繁忙，請稍後重試！';
+        }
+        alert(friendlyErr);
       }
     } catch (err: any) {
       if (err.name === 'AbortError') {
         console.log('使用者手動暫停 AI 生成');
       } else {
-        alert(`連線錯誤: ${err.message}`);
+        alert('連線失敗，請檢查網路後稍後重試');
       }
     } finally {
       setLoading(false);
@@ -469,8 +473,8 @@ export default function Home() {
   return (
     <div className={`min-h-screen transition-colors duration-200 ${darkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
       
-      {/* 手機版頂部 Header (移除 @allonetrip_perry 副標題) */}
-      <div className={`md:hidden sticky top-0 h-14 z-30 backdrop-blur-md border-b px-4 flex items-center justify-between shadow-sm ${darkMode ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-slate-200'}`}>
+      {/* 🟢 手機版頂部 Header (完全不透明防透光重疊) */}
+      <div className={`md:hidden sticky top-0 h-14 z-30 border-b px-4 flex items-center justify-between shadow-sm ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
         <h1 className={`text-base font-bold flex items-center gap-1.5 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
           🧳 獨旅 AI 幫手
         </h1>
@@ -482,7 +486,7 @@ export default function Home() {
         </button>
       </div>
 
-      {/* 手機版下拉選單 Drawer (文案更新為：設定旅行習慣 / 淺色模式 或 深色模式) */}
+      {/* 手機版下拉選單 Drawer */}
       {isMobileMenuOpen && (
         <div className={`md:hidden sticky top-14 z-20 border-b p-4 shadow-lg ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
           <div className="flex items-center gap-2">
@@ -502,10 +506,10 @@ export default function Home() {
         </div>
       )}
 
-      {/* 手機版滑動至 AI 對話區時顯示的雙 CTA Sticky Bar */}
+      {/* 🟢 手機版滑動置頂雙 CTA 列 (完全不透明實色防視覺干擾) */}
       {isChatScrolled && (messages.length > 0 || loading) && (
-        <div className={`md:hidden fixed top-14 left-0 right-0 z-20 px-4 py-2 border-b backdrop-blur-md transition-all shadow-sm ${
-          darkMode ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-slate-200'
+        <div className={`md:hidden fixed top-14 left-0 right-0 z-20 px-4 py-2 border-b shadow-md transition-all ${
+          darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
         }`}>
           <div className="flex items-center justify-between gap-2 max-w-3xl mx-auto">
             <button
@@ -532,7 +536,7 @@ export default function Home() {
 
       <div className="flex flex-col md:flex-row items-start min-h-screen">
         
-        {/* 桌機版側邊欄 (按鈕文案更新為：設定旅行習慣) */}
+        {/* 桌機版側邊欄 */}
         <div className={`hidden md:flex md:w-64 md:h-screen md:sticky md:top-0 md:self-start border-r p-6 flex-col justify-between shrink-0 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
           <div>
             <h1 className={`text-xl font-bold flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
@@ -819,8 +823,8 @@ export default function Home() {
 
       {/* 追問輸入列 */}
       {(messages.length > 0 || loading) && (
-        <div className={`fixed bottom-0 left-0 md:left-64 right-0 z-40 border-t p-3 md:px-8 backdrop-blur-xl shadow-2xl transition-all ${
-          darkMode ? 'bg-slate-900/95 border-slate-800' : 'bg-white/95 border-slate-200'
+        <div className={`fixed bottom-0 left-0 md:left-64 right-0 z-40 border-t p-3 md:px-8 shadow-2xl transition-all ${
+          darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
         }`}>
           <div className="max-w-3xl mx-auto space-y-2">
             {selectedImages.length > 0 && (

@@ -53,18 +53,46 @@ ${prefText}
      2. 🏨 **獨旅住宿推薦**：「幫我推薦這幾天適合獨旅、安全又性價比高的住宿！」
      3. ✈️ **機票與交通建議**：「我想諮詢最佳機票安排與交通套票！」`;
 
+    // 🟢 核心修復：角色嚴格交替清洗器 (Strict Alternating Role Sanitizer)
+    const rawMsgs = messages || [];
+    const sanitizedList: any[] = [];
+
+    for (const m of rawMsgs) {
+      if (!m || !m.content) continue;
+      const currentRole = m.role === 'assistant' ? 'assistant' : 'user';
+
+      // 若連續出現相同的 Role，自動合併內容，確保符合 user -> assistant -> user 順序
+      if (sanitizedList.length > 0 && sanitizedList[sanitizedList.length - 1].role === currentRole) {
+        const prev = sanitizedList[sanitizedList.length - 1];
+        if (typeof prev.content === 'string' && typeof m.content === 'string') {
+          prev.content += '\n' + m.content;
+        }
+      } else {
+        sanitizedList.push({
+          role: currentRole,
+          content: m.content,
+          images: m.images
+        });
+      }
+    }
+
+    // 確保第一個對話角色一定是 user
+    while (sanitizedList.length > 0 && sanitizedList[0].role !== 'user') {
+      sanitizedList.shift();
+    }
+
     const formattedMessages = [
       { role: 'system', content: systemPrompt },
-      ...(messages?.map((m: any) => {
+      ...sanitizedList.map((m: any) => {
         if (m.images && m.images.length > 0) {
           const contentParts: any[] = [{ type: 'text', text: m.content }];
           m.images.forEach((img: string) => {
             contentParts.push({ type: 'image_url', image_url: { url: img } });
           });
-          return { role: m.role === 'assistant' ? 'assistant' : 'user', content: contentParts };
+          return { role: m.role, content: contentParts };
         }
-        return { role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content };
-      }) || [])
+        return { role: m.role, content: m.content };
+      })
     ];
 
     let candidateModels: string[] = [];
@@ -92,6 +120,7 @@ ${prefText}
     }
 
     let reply = '';
+    let isRateLimited = false;
     let lastErrorMsg = '';
 
     for (const model of candidateModels.slice(0, 5)) {
@@ -121,7 +150,11 @@ ${prefText}
             break;
           }
         } else {
-          lastErrorMsg = await res.text();
+          const errText = await res.text();
+          if (res.status === 429 || errText.includes('Rate limit exceeded')) {
+            isRateLimited = true;
+          }
+          lastErrorMsg = errText;
         }
       } catch (err: any) {
         lastErrorMsg = err.message || String(err);
@@ -129,11 +162,17 @@ ${prefText}
     }
 
     if (!reply) {
-      return NextResponse.json({ error: `AI 服務繁忙，請稍後重試 (${lastErrorMsg})` }, { status: 500 });
+      if (isRateLimited) {
+        return NextResponse.json(
+          { error: '今天 AI 呼叫免費額度已達上限，請稍後再試！' },
+          { status: 429 }
+        );
+      }
+      return NextResponse.json({ error: 'AI 服務繁忙，請稍後重試！' }, { status: 500 });
     }
 
     return NextResponse.json({ reply });
   } catch (err: any) {
-    return NextResponse.json({ error: `伺服器錯誤: ${err.message || '未知錯誤'}` }, { status: 500 });
+    return NextResponse.json({ error: '伺服器處理錯誤，請稍後重試！' }, { status: 500 });
   }
 }
