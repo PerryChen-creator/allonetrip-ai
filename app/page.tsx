@@ -473,8 +473,8 @@ export default function Home() {
   return (
     <div className={`min-h-screen transition-colors duration-200 ${darkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
       
-      {/* 🟢 手機版頂部 Header (完全不透明防透光重疊) */}
-      <div className={`md:hidden sticky top-0 h-14 z-30 border-b px-4 flex items-center justify-between shadow-sm ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+      {/* 🟢 1. 手機版頂部 Header：z-50 頂級防覆蓋，按鈕永遠可操作 */}
+      <div className={`md:hidden sticky top-0 h-14 z-50 border-b px-4 flex items-center justify-between shadow-sm ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
         <h1 className={`text-base font-bold flex items-center gap-1.5 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
           🧳 獨旅 AI 幫手
         </h1>
@@ -486,9 +486,9 @@ export default function Home() {
         </button>
       </div>
 
-      {/* 手機版下拉選單 Drawer */}
+      {/* 🟢 2. 手機版下拉選單 Drawer：fixed 定位 + z-40，完全遮蓋頁面不撞圖層 */}
       {isMobileMenuOpen && (
-        <div className={`md:hidden sticky top-14 z-20 border-b p-4 shadow-lg ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+        <div className={`md:hidden fixed top-14 left-0 right-0 z-40 border-b p-4 shadow-xl ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
           <div className="flex items-center gap-2">
             <button
               onClick={() => { setIsPrefModalOpen(true); setIsMobileMenuOpen(false); }}
@@ -506,8 +506,8 @@ export default function Home() {
         </div>
       )}
 
-      {/* 🟢 手機版滑動置頂雙 CTA 列 (完全不透明實色防視覺干擾) */}
-      {isChatScrolled && (messages.length > 0 || loading) && (
+      {/* 🟢 3. 手機版對話區 Sticky Bar：僅在選單關閉 (!isMobileMenuOpen) 時顯示，避免與展開菜單碰撞 */}
+      {isChatScrolled && !isMobileMenuOpen && (messages.length > 0 || loading) && (
         <div className={`md:hidden fixed top-14 left-0 right-0 z-20 px-4 py-2 border-b shadow-md transition-all ${
           darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
         }`}>
