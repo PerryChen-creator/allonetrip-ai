@@ -244,7 +244,7 @@ export default function Home() {
   const [radarLng, setRadarLng] = useState<number | null>(null);
   const [radarManualLoc, setRadarManualLoc] = useState('');
   const [radarCategory, setRadarCategory] = useState('🍝 獨旅美食');
-  const [radarDistance, setRadarDistance] = useState(1000); // 預設 1000 公尺 (1km)
+  const [radarDistance, setRadarDistance] = useState(1000);
   const [isLocating, setIsLocating] = useState(false);
 
   const [messages, setMessages] = useState<Array<{ role: string; content: string; images?: string[] }>>([]);
@@ -261,6 +261,7 @@ export default function Home() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatHeaderRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null); // 🟢 最新訊息底端 Ref
   const abortControllerRef = useRef<AbortController | null>(null);
   const [todayStr, setTodayStr] = useState('');
 
@@ -305,11 +306,12 @@ export default function Home() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [messages.length]);
 
+  // 🟢 核心修復 1：提問/回答後自動滑動至「最底下最新訊息」而非跳回頂部
   useEffect(() => {
-    if (messages.length > 0 && messages[messages.length - 1].role === 'assistant') {
-      chatHeaderRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (messages.length > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
-  }, [messages]);
+  }, [messages, loading]);
 
   // 格式化距離顯示 (如 800m, 1.5 km)
   const formatDistance = (meters: number) => {
@@ -325,7 +327,7 @@ export default function Home() {
     return '🚗 捷運/車程圈';
   };
 
-  // 觸發 GPS 定位
+  // 🟢 核心修復 3：GPS 定位並自動反查中文地名（解決 AI 將座標誤判為公館之問題）
   const handleGetLocation = () => {
     if (!navigator.geolocation) {
       alert('您的瀏覽器不支援 GPS 定位，請手動輸入地點');
@@ -333,15 +335,33 @@ export default function Home() {
     }
     setIsLocating(true);
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setRadarLat(pos.coords.latitude);
-        setRadarLng(pos.coords.longitude);
-        setRadarManualLoc('');
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setRadarLat(lat);
+        setRadarLng(lng);
+
+        // 呼叫免費 OpenStreetMap 地名反查，精確將座標轉為「新北市三重區」等文字
+        try {
+          const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&accept-language=zh-TW`);
+          if (geoRes.ok) {
+            const geoData = await geoRes.json();
+            const addr = geoData.address || {};
+            const city = addr.city || addr.county || '';
+            const district = addr.suburb || addr.district || addr.town || '';
+            if (district || city) {
+              setRadarManualLoc(`${city}${district}`);
+            }
+          }
+        } catch (e) {
+          console.warn('地名反查失敗，將使用純座標', e);
+        }
+
         setIsLocating(false);
       },
       (err) => {
         setIsLocating(false);
-        alert('無法取得 GPS 定位，請直接手動輸入當前地點或地標（如：中山站、京都車站）');
+        alert('無法取得 GPS 定位，請直接手動輸入當前地點或地標（如：三重區、中山站）');
       },
       { timeout: 8000 }
     );
@@ -355,9 +375,9 @@ export default function Home() {
     }
 
     setLoading(true);
-    const locText = (radarLat && radarLng)
-      ? `目前位置 (GPS)`
-      : `地點【${radarManualLoc}】`;
+    const locText = radarManualLoc
+      ? `【${radarManualLoc}】`
+      : `目前座標 (${radarLat}, ${radarLng})`;
 
     const radiusText = formatDistance(radarDistance);
     const userPrompt = `📍 **隨身獨旅雷達掃描**：請幫我搜尋 ${locText} 附近的「${radarCategory}」（範圍：${radiusText}）。`;
@@ -699,7 +719,7 @@ export default function Home() {
         {/* 主內容區 */}
         <div className="flex-1 max-w-3xl mx-auto p-4 md:p-8 space-y-6 w-full pb-32">
           
-          {/* 頂部切換 Tab (規劃行程 vs 隨身雷達) */}
+          {/* 🟢 核心修復 2：更名為「📍 探索周邊雷達」 */}
           <div className={`p-1.5 rounded-2xl border flex items-center gap-1 shadow-sm ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
             <button
               onClick={() => setActiveTab('plan')}
@@ -719,7 +739,7 @@ export default function Home() {
                   : (darkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')
               }`}
             >
-              📍 隨身獨旅雷達 (探索周邊)
+              📍 探索周邊雷達
             </button>
           </div>
 
@@ -824,11 +844,10 @@ export default function Home() {
             </div>
           )}
 
-          {/* 表單區塊 - 📍 隨身獨旅雷達 */}
+          {/* 表單區塊 - 📍 探索周邊雷達 */}
           {activeTab === 'radar' && (
             <div className={`p-6 rounded-2xl shadow-sm border space-y-5 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
               
-              {/* 🟢 1. 修正地點區塊：flex-col sm:flex-row 避免手機輸入框截斷 */}
               <div>
                 <label className={`block text-sm font-bold mb-2 ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
                   當前位置
@@ -862,7 +881,6 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* 🟢 2. 類別選擇 + 自訂類別輸入 */}
               <div>
                 <label className={`block text-sm font-bold mb-2 ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
                   你想探索什麼類別？
@@ -892,7 +910,6 @@ export default function Home() {
                 />
               </div>
 
-              {/* 🟢 3. 距離範圍限制 Slider (200m ~ 5000m) */}
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <label className={`text-sm font-bold ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
@@ -1068,6 +1085,9 @@ export default function Home() {
                     <span className="text-sm font-bold">Perry 正在思考中，請稍等...</span>
                   </div>
                 )}
+
+                {/* 🟢 滑動錨點：確保永遠對齊最新訊息 */}
+                <div ref={messagesEndRef} />
               </div>
             </div>
           )}
