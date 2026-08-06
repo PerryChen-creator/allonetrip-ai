@@ -239,11 +239,11 @@ export default function Home() {
   const [endDate, setEndDate] = useState('');
   const [style, setStyle] = useState('');
 
-  // 隨身雷達 State
+  // 隨身雷達 State (🟢 預設無選項未選取)
   const [radarLat, setRadarLat] = useState<number | null>(null);
   const [radarLng, setRadarLng] = useState<number | null>(null);
   const [radarManualLoc, setRadarManualLoc] = useState('');
-  const [radarCategory, setRadarCategory] = useState('🍝 獨旅美食');
+  const [radarCategory, setRadarCategory] = useState(''); // 預設空字串呈現 Placeholder
   const [radarDistance, setRadarDistance] = useState(1000);
   const [isLocating, setIsLocating] = useState(false);
 
@@ -261,7 +261,7 @@ export default function Home() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatHeaderRef = useRef<HTMLDivElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null); // 🟢 最新訊息底端 Ref
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const [todayStr, setTodayStr] = useState('');
 
@@ -306,28 +306,24 @@ export default function Home() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [messages.length]);
 
-  // 🟢 核心修復 1：提問/回答後自動滑動至「最底下最新訊息」而非跳回頂部
   useEffect(() => {
     if (messages.length > 0) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
   }, [messages, loading]);
 
-  // 格式化距離顯示 (如 800m, 1.5 km)
   const formatDistance = (meters: number) => {
     if (meters < 1000) return `${meters}m`;
     const km = (meters / 1000).toFixed(meters % 1000 === 0 ? 0 : 1);
     return `${km} km`;
   };
 
-  // 距離情境標籤提示
   const getDistanceHint = (meters: number) => {
     if (meters <= 800) return '🚶 輕鬆散步圈';
     if (meters <= 2000) return '🚲 騎車/散步圈';
     return '🚗 捷運/車程圈';
   };
 
-  // 🟢 核心修復 3：GPS 定位並自動反查中文地名（解決 AI 將座標誤判為公館之問題）
   const handleGetLocation = () => {
     if (!navigator.geolocation) {
       alert('您的瀏覽器不支援 GPS 定位，請手動輸入地點');
@@ -341,7 +337,6 @@ export default function Home() {
         setRadarLat(lat);
         setRadarLng(lng);
 
-        // 呼叫免費 OpenStreetMap 地名反查，精確將座標轉為「新北市三重區」等文字
         try {
           const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&accept-language=zh-TW`);
           if (geoRes.ok) {
@@ -367,7 +362,6 @@ export default function Home() {
     );
   };
 
-  // 發送隨身雷達掃描請求
   const handleScanRadar = async () => {
     if (!radarLat && !radarLng && !radarManualLoc.trim()) {
       alert('請先點擊「一鍵定位」或輸入手動地點！');
@@ -379,8 +373,9 @@ export default function Home() {
       ? `【${radarManualLoc}】`
       : `目前座標 (${radarLat}, ${radarLng})`;
 
+    const categoryText = radarCategory.trim() || '獨旅美食與私房景點';
     const radiusText = formatDistance(radarDistance);
-    const userPrompt = `📍 **隨身獨旅雷達掃描**：請幫我搜尋 ${locText} 附近的「${radarCategory}」（範圍：${radiusText}）。`;
+    const userPrompt = `📍 **隨身獨旅雷達掃描**：請幫我搜尋 ${locText} 附近的「${categoryText}」（範圍：${radiusText}）。`;
 
     const newMessages = [
       ...messages,
@@ -397,7 +392,7 @@ export default function Home() {
           lat: radarLat,
           lng: radarLng,
           manualLocation: radarManualLoc,
-          category: radarCategory,
+          category: categoryText,
           radius: radiusText,
           userPreferences,
         }),
@@ -719,7 +714,7 @@ export default function Home() {
         {/* 主內容區 */}
         <div className="flex-1 max-w-3xl mx-auto p-4 md:p-8 space-y-6 w-full pb-32">
           
-          {/* 🟢 核心修復 2：更名為「📍 探索周邊雷達」 */}
+          {/* 頂部切換 Tab (規劃行程 vs 隨身雷達) */}
           <div className={`p-1.5 rounded-2xl border flex items-center gap-1 shadow-sm ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
             <button
               onClick={() => setActiveTab('plan')}
@@ -881,6 +876,7 @@ export default function Home() {
                 </div>
               </div>
 
+              {/* 🟢 預設不點選任何按鈕，並呈現 placeholder */}
               <div>
                 <label className={`block text-sm font-bold mb-2 ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
                   你想探索什麼類別？
@@ -890,7 +886,7 @@ export default function Home() {
                     <button
                       key={item}
                       type="button"
-                      onClick={() => setRadarCategory(item)}
+                      onClick={() => setRadarCategory(radarCategory === item ? '' : item)}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
                         radarCategory === item
                           ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
@@ -903,7 +899,7 @@ export default function Home() {
                 </div>
                 <input
                   type="text"
-                  placeholder="或自訂類別（如：老宅甜點、深夜食堂、古著雜貨）"
+                  placeholder="例如：獨旅美食、老宅甜點、深夜食堂"
                   value={radarCategory}
                   onChange={(e) => setRadarCategory(e.target.value)}
                   className={`w-full px-3.5 py-2 rounded-xl outline-none text-xs font-medium border ${darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500'}`}
@@ -1086,7 +1082,6 @@ export default function Home() {
                   </div>
                 )}
 
-                {/* 🟢 滑動錨點：確保永遠對齊最新訊息 */}
                 <div ref={messagesEndRef} />
               </div>
             </div>
