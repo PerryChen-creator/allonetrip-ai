@@ -206,7 +206,7 @@ export default function Home() {
   const [darkMode, setDarkMode] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // 🟢 切換模式分頁：'plan' (行程規劃) | 'radar' (隨身雷達)
+  // 切換模式分頁：'plan' (行程規劃) | 'radar' (隨身雷達)
   const [activeTab, setActiveTab] = useState<'plan' | 'radar'>('plan');
 
   const [isPrefModalOpen, setIsPrefModalOpen] = useState(false);
@@ -239,12 +239,12 @@ export default function Home() {
   const [endDate, setEndDate] = useState('');
   const [style, setStyle] = useState('');
 
-  // 🟢 隨身雷達 State
+  // 隨身雷達 State
   const [radarLat, setRadarLat] = useState<number | null>(null);
   const [radarLng, setRadarLng] = useState<number | null>(null);
   const [radarManualLoc, setRadarManualLoc] = useState('');
   const [radarCategory, setRadarCategory] = useState('🍝 獨旅美食');
-  const [radarRadius, setRadarRadius] = useState('1km 步行圈');
+  const [radarDistance, setRadarDistance] = useState(1000); // 預設 1000 公尺 (1km)
   const [isLocating, setIsLocating] = useState(false);
 
   const [messages, setMessages] = useState<Array<{ role: string; content: string; images?: string[] }>>([]);
@@ -311,7 +311,21 @@ export default function Home() {
     }
   }, [messages]);
 
-  // 🟢 觸發 GPS 定位
+  // 格式化距離顯示 (如 800m, 1.5 km)
+  const formatDistance = (meters: number) => {
+    if (meters < 1000) return `${meters}m`;
+    const km = (meters / 1000).toFixed(meters % 1000 === 0 ? 0 : 1);
+    return `${km} km`;
+  };
+
+  // 距離情境標籤提示
+  const getDistanceHint = (meters: number) => {
+    if (meters <= 800) return '🚶 輕鬆散步圈';
+    if (meters <= 2000) return '🚲 騎車/散步圈';
+    return '🚗 捷運/車程圈';
+  };
+
+  // 觸發 GPS 定位
   const handleGetLocation = () => {
     if (!navigator.geolocation) {
       alert('您的瀏覽器不支援 GPS 定位，請手動輸入地點');
@@ -333,7 +347,7 @@ export default function Home() {
     );
   };
 
-  // 🟢 發送隨身雷達掃描請求
+  // 發送隨身雷達掃描請求
   const handleScanRadar = async () => {
     if (!radarLat && !radarLng && !radarManualLoc.trim()) {
       alert('請先點擊「一鍵定位」或輸入手動地點！');
@@ -345,7 +359,8 @@ export default function Home() {
       ? `目前位置 (GPS)`
       : `地點【${radarManualLoc}】`;
 
-    const userPrompt = `📍 **隨身獨旅雷達掃描**：請幫我搜尋 ${locText} 附近的「${radarCategory}」（範圍：${radarRadius}）。`;
+    const radiusText = formatDistance(radarDistance);
+    const userPrompt = `📍 **隨身獨旅雷達掃描**：請幫我搜尋 ${locText} 附近的「${radarCategory}」（範圍：${radiusText}）。`;
 
     const newMessages = [
       ...messages,
@@ -363,7 +378,7 @@ export default function Home() {
           lng: radarLng,
           manualLocation: radarManualLoc,
           category: radarCategory,
-          radius: radarRadius,
+          radius: radiusText,
           userPreferences,
         }),
       });
@@ -684,7 +699,7 @@ export default function Home() {
         {/* 主內容區 */}
         <div className="flex-1 max-w-3xl mx-auto p-4 md:p-8 space-y-6 w-full pb-32">
           
-          {/* 🟢 新增：頂部切換 Tab (規劃行程 vs 隨身雷達) */}
+          {/* 頂部切換 Tab (規劃行程 vs 隨身雷達) */}
           <div className={`p-1.5 rounded-2xl border flex items-center gap-1 shadow-sm ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
             <button
               onClick={() => setActiveTab('plan')}
@@ -809,29 +824,31 @@ export default function Home() {
             </div>
           )}
 
-          {/* 🟢 新增：表單區塊 - 📍 隨身獨旅雷達 */}
+          {/* 表單區塊 - 📍 隨身獨旅雷達 */}
           {activeTab === 'radar' && (
             <div className={`p-6 rounded-2xl shadow-sm border space-y-5 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+              
+              {/* 🟢 1. 修正地點區塊：flex-col sm:flex-row 避免手機輸入框截斷 */}
               <div>
                 <label className={`block text-sm font-bold mb-2 ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
                   當前位置
                 </label>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <button
                     type="button"
                     onClick={handleGetLocation}
                     disabled={isLocating}
-                    className={`px-4 py-2.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 shrink-0 ${
+                    className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 shrink-0 ${
                       radarLat && radarLng
                         ? 'bg-green-600 text-white border-green-600'
                         : (darkMode ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700' : 'bg-slate-100 border-slate-300 text-slate-800 hover:bg-slate-200')
                     }`}
                   >
-                    {isLocating ? '📡 定位中...' : (radarLat && radarLng ? '✅ 已定位成功' : '🎯 一鍵 GPS 定位')}
+                    {isLocating ? '📡 定位中...' : (radarLat && radarLng ? '✅ 已成功 GPS 定位' : '🎯 一鍵 GPS 定位')}
                   </button>
                   <input
                     type="text"
-                    placeholder="或手動輸入地名（如：中山站、京都車站）"
+                    placeholder="例如：中山站、京都車站"
                     value={radarManualLoc}
                     onChange={(e) => {
                       setRadarManualLoc(e.target.value);
@@ -845,19 +862,20 @@ export default function Home() {
                 </div>
               </div>
 
+              {/* 🟢 2. 類別選擇 + 自訂類別輸入 */}
               <div>
                 <label className={`block text-sm font-bold mb-2 ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
                   你想探索什麼類別？
                 </label>
-                <div className="flex flex-wrap gap-2">
-                  {['🍝 獨旅美食', '☕ 咖啡/不限時', '📸 秘境景點', '🍺 夜晚酒吧'].map((item) => (
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {['🍝 獨旅美食', '☕ 咖啡/不限時', '📸 秘境景點', '🍺 夜晚酒吧', '🍜 宵夜拉麵', '📚 獨立書店'].map((item) => (
                     <button
                       key={item}
                       type="button"
                       onClick={() => setRadarCategory(item)}
-                      className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition ${
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
                         radarCategory === item
-                          ? 'bg-blue-600 text-white border-blue-600 shadow'
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                           : (darkMode ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200')
                       }`}
                     >
@@ -865,27 +883,38 @@ export default function Home() {
                     </button>
                   ))}
                 </div>
+                <input
+                  type="text"
+                  placeholder="或自訂類別（如：老宅甜點、深夜食堂、古著雜貨）"
+                  value={radarCategory}
+                  onChange={(e) => setRadarCategory(e.target.value)}
+                  className={`w-full px-3.5 py-2 rounded-xl outline-none text-xs font-medium border ${darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500'}`}
+                />
               </div>
 
+              {/* 🟢 3. 距離範圍限制 Slider (200m ~ 5000m) */}
               <div>
-                <label className={`block text-sm font-bold mb-2 ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
-                  距離範圍
-                </label>
-                <div className="flex gap-2">
-                  {['500m 步行圈', '1km 步行圈', '3km 騎車/捷運'].map((item) => (
-                    <button
-                      key={item}
-                      type="button"
-                      onClick={() => setRadarRadius(item)}
-                      className={`flex-1 py-2 rounded-xl text-xs font-bold border transition ${
-                        radarRadius === item
-                          ? 'bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900'
-                          : (darkMode ? 'bg-slate-800 border-slate-700 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-600')
-                      }`}
-                    >
-                      {item}
-                    </button>
-                  ))}
+                <div className="flex justify-between items-center mb-2">
+                  <label className={`text-sm font-bold ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
+                    距離範圍限制
+                  </label>
+                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${darkMode ? 'text-blue-300 bg-blue-900/50' : 'text-blue-700 bg-blue-50'}`}>
+                    {formatDistance(radarDistance)} ({getDistanceHint(radarDistance)})
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="200"
+                  max="5000"
+                  step="100"
+                  value={radarDistance}
+                  onChange={(e) => setRadarDistance(Number(e.target.value))}
+                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 accent-blue-600"
+                />
+                <div className={`flex justify-between text-[11px] font-medium mt-1 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  <span>近 200m</span>
+                  <span>2.5 km</span>
+                  <span>遠 5 km (上限)</span>
                 </div>
               </div>
 
@@ -917,7 +946,7 @@ export default function Home() {
             </a>
           </div>
 
-          {/* 對話與推薦結果區塊 */}
+          {/* 對話區塊 */}
           {(messages.length > 0 || loading) && (
             <div ref={chatSectionRef} className={`rounded-2xl shadow-sm border p-4 md:p-6 space-y-4 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
               
