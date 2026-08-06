@@ -206,6 +206,9 @@ export default function Home() {
   const [darkMode, setDarkMode] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // 🟢 切換模式分頁：'plan' (行程規劃) | 'radar' (隨身雷達)
+  const [activeTab, setActiveTab] = useState<'plan' | 'radar'>('plan');
+
   const [isPrefModalOpen, setIsPrefModalOpen] = useState(false);
   const [userPreferences, setUserPreferences] = useState({
     departureAirport: '台北桃園 TPE',
@@ -230,15 +233,25 @@ export default function Home() {
     setIsPrefModalOpen(false);
   };
 
+  // 行程規劃 State
   const [destination, setDestination] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [style, setStyle] = useState('');
 
+  // 🟢 隨身雷達 State
+  const [radarLat, setRadarLat] = useState<number | null>(null);
+  const [radarLng, setRadarLng] = useState<number | null>(null);
+  const [radarManualLoc, setRadarManualLoc] = useState('');
+  const [radarCategory, setRadarCategory] = useState('🍝 獨旅美食');
+  const [radarRadius, setRadarRadius] = useState('1km 步行圈');
+  const [isLocating, setIsLocating] = useState(false);
+
   const [messages, setMessages] = useState<Array<{ role: string; content: string; images?: string[] }>>([]);
   const [inputQuery, setInputQuery] = useState('');
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
 
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingText, setEditingText] = useState('');
@@ -297,6 +310,76 @@ export default function Home() {
       chatHeaderRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }, [messages]);
+
+  // 🟢 觸發 GPS 定位
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+      alert('您的瀏覽器不支援 GPS 定位，請手動輸入地點');
+      return;
+    }
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setRadarLat(pos.coords.latitude);
+        setRadarLng(pos.coords.longitude);
+        setRadarManualLoc('');
+        setIsLocating(false);
+      },
+      (err) => {
+        setIsLocating(false);
+        alert('無法取得 GPS 定位，請直接手動輸入當前地點或地標（如：中山站、京都車站）');
+      },
+      { timeout: 8000 }
+    );
+  };
+
+  // 🟢 發送隨身雷達掃描請求
+  const handleScanRadar = async () => {
+    if (!radarLat && !radarLng && !radarManualLoc.trim()) {
+      alert('請先點擊「一鍵定位」或輸入手動地點！');
+      return;
+    }
+
+    setLoading(true);
+    const locText = (radarLat && radarLng)
+      ? `目前位置 (GPS)`
+      : `地點【${radarManualLoc}】`;
+
+    const userPrompt = `📍 **隨身獨旅雷達掃描**：請幫我搜尋 ${locText} 附近的「${radarCategory}」（範圍：${radarRadius}）。`;
+
+    const newMessages = [
+      ...messages,
+      { role: 'user', content: userPrompt }
+    ];
+
+    setMessages(newMessages);
+
+    try {
+      const res = await fetch('/api/nearby', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lat: radarLat,
+          lng: radarLng,
+          manualLocation: radarManualLoc,
+          category: radarCategory,
+          radius: radarRadius,
+          userPreferences,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setMessages((prev) => [...prev, { role: 'assistant', content: data.reply }]);
+      } else {
+        alert(data.error || '雷達掃描失敗，請稍後重試！');
+      }
+    } catch (err: any) {
+      alert('連線失敗，請稍後重試！');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getDaysCount = () => {
     if (!startDate || !endDate) return null;
@@ -372,36 +455,59 @@ export default function Home() {
       return;
     }
 
-    const compactMessages = messages.map((m) => ({
-      r: m.role === 'user' ? 'u' : 'a',
-      c: m.content,
-    }));
+    setIsSharing(true);
+    try {
+      const compactMessages = messages.map((m) => ({
+        r: m.role === 'user' ? 'u' : 'a',
+        c: m.content,
+      }));
 
-    const payload = {
-      d: destination,
-      s: startDate,
-      e: endDate,
-      st: style,
-      m: compactMessages,
-    };
+      const payload = {
+        d: destination,
+        s: startDate,
+        e: endDate,
+        st: style,
+        m: compactMessages,
+      };
 
-    const encoded = await compressToUrl(payload);
-    if (!encoded) {
-      alert('打包對話資料失敗，請重試');
-      return;
-    }
-
-    const shareUrl = `${window.location.origin}${window.location.pathname}?share=${encoded}`;
-
-    if (navigator.clipboard) {
-      try {
-        await navigator.clipboard.writeText(shareUrl);
-        alert('✨ 已為你生成極簡專屬對話連結並複製至剪貼簿！\n朋友點開連結即可直接瀏覽這份完整的行程對話。');
-      } catch (err) {
-        prompt('請複製以下專屬對話網址分享給朋友：', shareUrl);
+      const encoded = await compressToUrl(payload);
+      if (!encoded) {
+        alert('打包對話資料失敗，請重試');
+        return;
       }
-    } else {
-      prompt('請複製以下專屬對話網址分享給朋友：', shareUrl);
+
+      const longUrl = `${window.location.origin}${window.location.pathname}?share=${encoded}`;
+      let finalUrl = longUrl;
+
+      try {
+        const res = await fetch('/api/shorten', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: longUrl })
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          if (data.shortUrl) {
+            finalUrl = data.shortUrl;
+          }
+        }
+      } catch (err) {
+        console.warn('縮網址服務暫時無回應', err);
+      }
+
+      if (navigator.clipboard) {
+        try {
+          await navigator.clipboard.writeText(finalUrl);
+          alert('✨ 已為你生成「極簡短網址」並複製至剪貼簿！');
+        } catch (err) {
+          prompt('請複製以下專屬對話網址分享給朋友：', finalUrl);
+        }
+      } else {
+        prompt('請複製以下專屬對話網址分享給朋友：', finalUrl);
+      }
+    } finally {
+      setIsSharing(false);
     }
   };
 
@@ -473,7 +579,7 @@ export default function Home() {
   return (
     <div className={`min-h-screen transition-colors duration-200 ${darkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
       
-      {/* 🟢 1. 手機版頂部 Header：z-50 頂級防覆蓋，按鈕永遠可操作 */}
+      {/* 手機版頂部 Header */}
       <div className={`md:hidden sticky top-0 h-14 z-50 border-b px-4 flex items-center justify-between shadow-sm ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
         <h1 className={`text-base font-bold flex items-center gap-1.5 ${darkMode ? 'text-white' : 'text-slate-900'}`}>
           🧳 獨旅 AI 幫手
@@ -486,7 +592,7 @@ export default function Home() {
         </button>
       </div>
 
-      {/* 🟢 2. 手機版下拉選單 Drawer：fixed 定位 + z-40，完全遮蓋頁面不撞圖層 */}
+      {/* 手機版下拉選單 Drawer */}
       {isMobileMenuOpen && (
         <div className={`md:hidden fixed top-14 left-0 right-0 z-40 border-b p-4 shadow-xl ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
           <div className="flex items-center gap-2">
@@ -506,7 +612,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* 🟢 3. 手機版對話區 Sticky Bar：僅在選單關閉 (!isMobileMenuOpen) 時顯示，避免與展開菜單碰撞 */}
+      {/* 手機版滑動置頂雙 CTA 列 */}
       {isChatScrolled && !isMobileMenuOpen && (messages.length > 0 || loading) && (
         <div className={`md:hidden fixed top-14 left-0 right-0 z-20 px-4 py-2 border-b shadow-md transition-all ${
           darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
@@ -514,11 +620,14 @@ export default function Home() {
           <div className="flex items-center justify-between gap-2 max-w-3xl mx-auto">
             <button
               onClick={handleShare}
+              disabled={isSharing}
               className={`px-3 py-1.5 text-xs font-bold rounded-xl transition border flex items-center justify-center gap-1.5 flex-1 ${
+                isSharing ? 'opacity-70 cursor-not-allowed' : ''
+              } ${
                 darkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200'
               }`}
             >
-              🔗 分享對話
+              {isSharing ? '⏳ 生成中...' : '🔗 分享對話'}
             </button>
             <a
               href="https://www.instagram.com/allonetrip_perry/"
@@ -575,112 +684,225 @@ export default function Home() {
         {/* 主內容區 */}
         <div className="flex-1 max-w-3xl mx-auto p-4 md:p-8 space-y-6 w-full pb-32">
           
-          {/* 表單區塊 */}
-          <div className={`p-6 rounded-2xl shadow-sm border space-y-4 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
-            <div>
-              <label className={`block text-sm font-bold mb-1 ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
-                想去哪裡獨旅？
-              </label>
-              <input
-                type="text"
-                placeholder="例如：日本環島、北歐極光之旅"
-                value={destination}
-                onChange={(e) => setDestination(e.target.value)}
-                className={`w-full px-4 py-2.5 rounded-xl outline-none text-sm font-medium transition focus:ring-2 focus:ring-blue-500 border ${darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500'}`}
-              />
-            </div>
-
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <label className={`text-sm font-bold ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
-                  旅遊日期區間 📅
-                </label>
-                {daysCount && (
-                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${darkMode ? 'text-blue-300 bg-blue-900/50' : 'text-blue-700 bg-blue-50'}`}>
-                    共 {daysCount} 天 ({daysCount - 1} 夜)
-                  </span>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="relative w-full">
-                  <input
-                    type="date"
-                    min={todayStr}
-                    value={startDate}
-                    style={{ colorScheme: darkMode ? 'dark' : 'light' }}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className={`w-full h-11 px-3 border rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 block ${
-                      startDate
-                        ? (darkMode ? 'text-white bg-slate-800 border-slate-700' : 'text-slate-900 bg-white border-slate-300')
-                        : (darkMode ? 'text-transparent bg-slate-800 border-slate-700' : 'text-transparent bg-white border-slate-300')
-                    }`}
-                  />
-                  {!startDate && (
-                    <span
-                      className={`pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-medium ${
-                        darkMode ? 'text-slate-400' : 'text-slate-500'
-                      }`}
-                    >
-                      年 / 月 / 日
-                    </span>
-                  )}
-                </div>
-
-                <div className="relative w-full">
-                  <input
-                    type="date"
-                    min={startDate || todayStr}
-                    value={endDate}
-                    style={{ colorScheme: darkMode ? 'dark' : 'light' }}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className={`w-full h-11 px-3 border rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 block ${
-                      endDate
-                        ? (darkMode ? 'text-white bg-slate-800 border-slate-700' : 'text-slate-900 bg-white border-slate-300')
-                        : (darkMode ? 'text-transparent bg-slate-800 border-slate-700' : 'text-transparent bg-white border-slate-300')
-                    }`}
-                  />
-                  {!endDate && (
-                    <span
-                      className={`pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-medium ${
-                        darkMode ? 'text-slate-400' : 'text-slate-500'
-                      }`}
-                    >
-                      年 / 月 / 日
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label className={`block text-sm font-bold mb-1 ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
-                獨旅風格與靈感 (選填) 🔗
-              </label>
-              <input
-                type="text"
-                placeholder="例如：探索登山、夜生活，或貼上連結"
-                value={style}
-                onChange={(e) => setStyle(e.target.value)}
-                className={`w-full px-4 py-2.5 rounded-xl outline-none text-sm font-medium transition focus:ring-2 focus:ring-blue-500 border ${darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500'}`}
-              />
-              <p className={`text-xs mt-2 ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-                可輸入旅遊喜好，或貼上 IG / YouTube 公開景點圖片或影片連結
-              </p>
-            </div>
-
+          {/* 🟢 新增：頂部切換 Tab (規劃行程 vs 隨身雷達) */}
+          <div className={`p-1.5 rounded-2xl border flex items-center gap-1 shadow-sm ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
             <button
-              onClick={() => handleGenerate()}
-              disabled={loading || isFormInvalid}
-              className={`w-full py-3 font-bold rounded-xl shadow transition ${
-                loading || isFormInvalid
-                  ? (darkMode ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-200 text-slate-400 cursor-not-allowed')
-                  : (darkMode ? 'bg-white text-slate-900 hover:bg-slate-100' : 'bg-slate-900 hover:bg-black text-white')
+              onClick={() => setActiveTab('plan')}
+              className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                activeTab === 'plan'
+                  ? (darkMode ? 'bg-slate-800 text-white shadow-sm' : 'bg-slate-100 text-slate-900 shadow-sm')
+                  : (darkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')
               }`}
             >
-              {loading ? 'Perry 正在思考中，請稍等...' : '一鍵生成專屬行程 ✨'}
+              🗓️ 規劃完整行程
+            </button>
+            <button
+              onClick={() => setActiveTab('radar')}
+              className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                activeTab === 'radar'
+                  ? (darkMode ? 'bg-blue-600 text-white shadow-sm' : 'bg-blue-600 text-white shadow-sm')
+                  : (darkMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')
+              }`}
+            >
+              📍 隨身獨旅雷達 (探索周邊)
             </button>
           </div>
+
+          {/* 表單區塊 - 🗓️ 規劃行程 */}
+          {activeTab === 'plan' && (
+            <div className={`p-6 rounded-2xl shadow-sm border space-y-4 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+              <div>
+                <label className={`block text-sm font-bold mb-1 ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
+                  想去哪裡獨旅？
+                </label>
+                <input
+                  type="text"
+                  placeholder="例如：日本環島、北歐極光之旅"
+                  value={destination}
+                  onChange={(e) => setDestination(e.target.value)}
+                  className={`w-full px-4 py-2.5 rounded-xl outline-none text-sm font-medium transition focus:ring-2 focus:ring-blue-500 border ${darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500'}`}
+                />
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className={`text-sm font-bold ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
+                    旅遊日期區間 📅
+                  </label>
+                  {daysCount && (
+                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${darkMode ? 'text-blue-300 bg-blue-900/50' : 'text-blue-700 bg-blue-50'}`}>
+                      共 {daysCount} 天 ({daysCount - 1} 夜)
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="relative w-full">
+                    <input
+                      type="date"
+                      min={todayStr}
+                      value={startDate}
+                      style={{ colorScheme: darkMode ? 'dark' : 'light' }}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className={`w-full h-11 px-3 border rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 block ${
+                        startDate
+                          ? (darkMode ? 'text-white bg-slate-800 border-slate-700' : 'text-slate-900 bg-white border-slate-300')
+                          : (darkMode ? 'text-transparent bg-slate-800 border-slate-700' : 'text-transparent bg-white border-slate-300')
+                      }`}
+                    />
+                    {!startDate && (
+                      <span className={`pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-medium ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                        年 / 月 / 日
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="relative w-full">
+                    <input
+                      type="date"
+                      min={startDate || todayStr}
+                      value={endDate}
+                      style={{ colorScheme: darkMode ? 'dark' : 'light' }}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className={`w-full h-11 px-3 border rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 block ${
+                        endDate
+                          ? (darkMode ? 'text-white bg-slate-800 border-slate-700' : 'text-slate-900 bg-white border-slate-300')
+                          : (darkMode ? 'text-transparent bg-slate-800 border-slate-700' : 'text-transparent bg-white border-slate-300')
+                      }`}
+                    />
+                    {!endDate && (
+                      <span className={`pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-medium ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                        年 / 月 / 日
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className={`block text-sm font-bold mb-1 ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
+                  獨旅風格與靈感 (選填) 🔗
+                </label>
+                <input
+                  type="text"
+                  placeholder="例如：探索登山、夜生活，或貼上連結"
+                  value={style}
+                  onChange={(e) => setStyle(e.target.value)}
+                  className={`w-full px-4 py-2.5 rounded-xl outline-none text-sm font-medium transition focus:ring-2 focus:ring-blue-500 border ${darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500'}`}
+                />
+                <p className={`text-xs mt-2 ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                  可輸入旅遊喜好，或貼上 IG / YouTube 公開景點圖片或影片連結
+                </p>
+              </div>
+
+              <button
+                onClick={() => handleGenerate()}
+                disabled={loading || isFormInvalid}
+                className={`w-full py-3 font-bold rounded-xl shadow transition ${
+                  loading || isFormInvalid
+                    ? (darkMode ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-200 text-slate-400 cursor-not-allowed')
+                    : (darkMode ? 'bg-white text-slate-900 hover:bg-slate-100' : 'bg-slate-900 hover:bg-black text-white')
+                }`}
+              >
+                {loading ? 'Perry 正在思考中，請稍等...' : '一鍵生成專屬行程 ✨'}
+              </button>
+            </div>
+          )}
+
+          {/* 🟢 新增：表單區塊 - 📍 隨身獨旅雷達 */}
+          {activeTab === 'radar' && (
+            <div className={`p-6 rounded-2xl shadow-sm border space-y-5 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+              <div>
+                <label className={`block text-sm font-bold mb-2 ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
+                  當前位置
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleGetLocation}
+                    disabled={isLocating}
+                    className={`px-4 py-2.5 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 shrink-0 ${
+                      radarLat && radarLng
+                        ? 'bg-green-600 text-white border-green-600'
+                        : (darkMode ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700' : 'bg-slate-100 border-slate-300 text-slate-800 hover:bg-slate-200')
+                    }`}
+                  >
+                    {isLocating ? '📡 定位中...' : (radarLat && radarLng ? '✅ 已定位成功' : '🎯 一鍵 GPS 定位')}
+                  </button>
+                  <input
+                    type="text"
+                    placeholder="或手動輸入地名（如：中山站、京都車站）"
+                    value={radarManualLoc}
+                    onChange={(e) => {
+                      setRadarManualLoc(e.target.value);
+                      if (e.target.value) {
+                        setRadarLat(null);
+                        setRadarLng(null);
+                      }
+                    }}
+                    className={`flex-1 px-3.5 py-2.5 rounded-xl outline-none text-xs font-medium border ${darkMode ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-400' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-500'}`}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className={`block text-sm font-bold mb-2 ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
+                  你想探索什麼類別？
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {['🍝 獨旅美食', '☕ 咖啡/不限時', '📸 秘境景點', '🍺 夜晚酒吧'].map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => setRadarCategory(item)}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-bold border transition ${
+                        radarCategory === item
+                          ? 'bg-blue-600 text-white border-blue-600 shadow'
+                          : (darkMode ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200')
+                      }`}
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className={`block text-sm font-bold mb-2 ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
+                  距離範圍
+                </label>
+                <div className="flex gap-2">
+                  {['500m 步行圈', '1km 步行圈', '3km 騎車/捷運'].map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => setRadarRadius(item)}
+                      className={`flex-1 py-2 rounded-xl text-xs font-bold border transition ${
+                        radarRadius === item
+                          ? 'bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900'
+                          : (darkMode ? 'bg-slate-800 border-slate-700 text-slate-400' : 'bg-slate-100 border-slate-200 text-slate-600')
+                      }`}
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleScanRadar}
+                disabled={loading || (!radarLat && !radarLng && !radarManualLoc.trim())}
+                className={`w-full py-3 font-bold rounded-xl shadow transition ${
+                  loading || (!radarLat && !radarLng && !radarManualLoc.trim())
+                    ? (darkMode ? 'bg-slate-800 text-slate-600 cursor-not-allowed' : 'bg-slate-200 text-slate-400 cursor-not-allowed')
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                }`}
+              >
+                {loading ? 'Perry 正在雷達掃描周邊，請稍等...' : '✨ 啟動隨身雷達掃描'}
+              </button>
+            </div>
+          )}
 
           {/* 橫幅區塊 */}
           <div className={`rounded-2xl shadow-sm border p-6 flex flex-col items-center justify-center space-y-4 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
@@ -695,7 +917,7 @@ export default function Home() {
             </a>
           </div>
 
-          {/* 對話區塊 */}
+          {/* 對話與推薦結果區塊 */}
           {(messages.length > 0 || loading) && (
             <div ref={chatSectionRef} className={`rounded-2xl shadow-sm border p-4 md:p-6 space-y-4 ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
               
@@ -707,11 +929,14 @@ export default function Home() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleShare}
+                    disabled={isSharing}
                     className={`px-3 py-1.5 text-xs font-bold rounded-xl transition border flex items-center justify-center gap-1.5 ${
+                      isSharing ? 'opacity-70 cursor-not-allowed' : ''
+                    } ${
                       darkMode ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200'
                     }`}
                   >
-                    🔗 分享對話
+                    {isSharing ? '⏳ 生成中...' : '🔗 分享對話'}
                   </button>
                   <a
                     href="https://www.instagram.com/allonetrip_perry/"
@@ -878,7 +1103,7 @@ export default function Home() {
 
               <input
                 type="text"
-                placeholder="問問 Perry...（例如：展開 Day 1-5 的細節，或附圖詢問）"
+                placeholder="問問 Perry...（例如：幫我把這間加入行程，或展開地圖細節）"
                 value={inputQuery}
                 onChange={(e) => setInputQuery(e.target.value)}
                 onKeyDown={(e) => {
